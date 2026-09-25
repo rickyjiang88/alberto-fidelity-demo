@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c91523">
+<title>Alberto Fidelity Demo</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f7f2ea;color:#171310}.wrap{max-width:480px;margin:auto;min-height:100vh;background:#fbfaf8}.head{padding:18px;background:#c91523;color:#fff}.head b{font-size:26px}.head small{display:block;font-weight:800;letter-spacing:.12em}.hero{padding:24px 18px}.card{background:#fff;border:1px solid #eadfd3;border-radius:22px;padding:18px;margin:12px 0}.btn{display:block;width:100%;border:0;border-radius:16px;padding:16px;margin:10px 0;background:#c91523;color:#fff;font-weight:900;font-size:16px}.alt{background:#fff;color:#c91523;border:1px solid #c91523}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.points{font-size:48px;font-weight:1000}.muted{color:#786e67;font-size:13px}.title{font-size:24px;margin:0 0 8px}.field{display:block;margin:10px 0;font-size:12px;font-weight:800}.field input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #ddd;border-radius:12px;margin-top:5px;font-size:16px}.tag{display:inline-block;padding:7px 10px;background:#fff0f1;color:#c91523;border-radius:99px;font-size:11px;font-weight:900}.qr{width:120px;height:120px;margin:12px auto;background:repeating-linear-gradient(45deg,#111 0 5px,#fff 5px 10px);border:10px solid #fff;box-shadow:0 0 0 1px #ddd}.menuitem{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #eee}.menuitem:last-child{border:0}
+</style>
+</head>
+<body><div class="wrap">
+<div class="head"><b>ALBERTO</b><small>BAR CON CUCINA · FIDELITY</small></div>
+<div class="hero">
+<span class="tag">DEMO CLIENTI</span><h1 class="title">Alberto Fidelity</h1><p class="muted">Account cliente, preordini, menu, QR personale, punti e premi.</p>
+<div class="card"><div class="muted">IL TUO SALDO</div><div class="points">245 <span style="font-size:16px">punti</span></div><div class="qr"></div><button class="btn" onclick="alert('QR Fidelity personale: ALB-00245')">MOSTRA QR FIDELITY</button></div>
+<div class="grid"><button class="btn" onclick="document.getElementById('pre').scrollIntoView()">PREORDINA</button><button class="btn alt" onclick="document.getElementById('menu').scrollIntoView()">MENU</button></div>
+<div class="card" id="pre"><h2>Preordina</h2><div class="grid"><button class="btn" onclick="pick('🥡 Asporto')">🥡 ASPORTO</button><button class="btn alt" onclick="pick('🍽️ Al locale')">🍽️ AL LOCALE</button></div><p id="choice" class="muted">Scegli come vuoi consumare.</p></div>
+<div class="card" id="menu"><h2>Menu del giorno</h2><div class="menuitem"><b>Primo del giorno</b><span>€8</span></div><div class="menuitem"><b>Primo + contorno</b><span>€10</span></div><div class="menuitem"><b>Piatto unico</b><span>€11</span></div><div class="menuitem"><b>Primo + secondo</b><span>€13</span></div></div>
+<div class="card"><h2>Menu</h2><div class="menuitem"><b>Panini</b><span>›</span></div><div class="menuitem"><b>Insalatone</b><span>›</span></div><div class="menuitem"><b>Piadine</b><span>›</span></div><div class="menuitem"><b>Piatti freddi</b><span>›</span></div><div class="menuitem"><b>Toast</b><span>›</span></div></div>
+<div class="card"><h2>Registrazione</h2><label class="field">Nome<input placeholder="Nome"></label><label class="field">Cognome<input placeholder="Cognome"></label><label class="field">Data di nascita<input type="date"></label><label class="field">Email<input type="email" placeholder="Email"></label><label class="field">Telefono<input type="tel" placeholder="Telefono"></label><button class="btn" onclick="alert('Registrazione demo completata')">CREA ACCOUNT</button></div>
+</div></div><script>function pick(x){document.getElementById('choice').textContent='Hai scelto: '+x}</script></body></html>
