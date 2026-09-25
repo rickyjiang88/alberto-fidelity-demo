@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    match /fidelityCustomers/{code} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.points == 0;
+
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+
+      allow update: if isAdmin()
+        || (signedIn()
+            && resource.data.uid == request.auth.uid
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.points == resource.data.points);
+
+      allow delete: if isAdmin();
+    }
+
+    match /fidelityUsers/{uid} {
+      allow create: if signedIn() && uid == request.auth.uid;
+      allow read: if isAdmin() || (signedIn() && uid == request.auth.uid);
+      allow update, delete: if isAdmin() || (signedIn() && uid == request.auth.uid);
+    }
+
+    match /fidelityTransactions/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    match /referrals/{id} {
+      allow create: if signedIn()
+        && request.resource.data.invitedCustomer == id;
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.invitedCustomer == id)
+        || (signedIn() && resource.data.referrerCode == id);
+      allow update, delete: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
