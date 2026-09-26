@@ -124,7 +124,7 @@ async function completeAppOrder(e){e.preventDefault();if(!appCart.length)return 
 function renderCart(){const pricing=cartPricing();document.getElementById('cartContent').innerHTML=appCart.length?appCart.map(x=>{const line=pricing.lineTotals[x.key]||0,unit=x.qty?line/x.qty:0;return '<div class="card cart-row"><div><b>'+escapeHtml(x.name)+'</b>'+(x.details?'<small style="display:block;color:#746b65;margin-top:4px">'+escapeHtml(x.details)+'</small>':'')+'<br><small>'+money(unit)+'</small></div><div class="qty"><button onclick="changeQty(\''+x.key.replace(/'/g,"\\'")+'\',-1)">−</button><b>'+x.qty+'</b><button onclick="changeQty(\''+x.key.replace(/'/g,"\\'")+'\',1)">+</button></div></div>'}).join(''):'<div class="card">Il carrello è vuoto.</div>';document.getElementById('cartTotal').textContent='TOTALE · '+money(pricing.total)}
 function openMenuHome(){const title=document.getElementById('menuTitle');title.textContent='Menu Alberto';title.dataset.cat='';const daily='<button class="card menu-daily" style="width:100%;text-align:left;border:0;margin-bottom:12px;cursor:pointer" onclick="show(\'daily\')"><small>OGGI DA ALBERTO</small><b>MENU DEL GIORNO</b><span>Aggiornato da Shop Manage ›</span></button>';const cats=['Lo Chef Consiglia','Piatti Freddi','Insalatone','Panini','Piadine','Toast'].map(cat=>'<button class="card" style="width:100%;text-align:left;border:0;margin-bottom:10px;cursor:pointer" onclick="openCategory(\''+cat.replace(/'/g,"\\'")+'\')"><b>'+cat.toUpperCase()+'</b><span style="float:right">›</span></button>').join('');document.getElementById('menuContent').innerHTML=daily+cats;show('menu')}
 function customerCode(){let c=localStorage.getItem('albertoCustomerCode');if(!c){c='ALB'+Math.random().toString(36).slice(2,8).toUpperCase();localStorage.setItem('albertoCustomerCode',c)}return c}
-function referralUrl(extra=''){const base=location.origin+location.pathname+'?v=group-sync2&ref='+encodeURIComponent(customerCode());return extra?base+'&'+extra:base}
+function referralUrl(extra=''){const cacheBust='join-'+Date.now().toString(36);const base=location.origin+location.pathname+'?v='+encodeURIComponent(cacheBust)+'&ref='+encodeURIComponent(customerCode());return extra?base+'&'+extra:base}
 function updateInviteShareCount(){const el=document.getElementById('inviteShareCount');if(el)el.textContent=Number(localStorage.getItem('albertoInviteShares')||0)}
 function markInviteShared(){localStorage.setItem('albertoInviteShares',String(Number(localStorage.getItem('albertoInviteShares')||0)+1));updateInviteShareCount()}
 async function shareInvite(){const url=referralUrl(),txt='Vieni da Alberto! Registrati ad Alberto Fidelity con il mio invito.';if(navigator.share){try{await navigator.share({title:'Alberto Fidelity',text:txt,url});markInviteShared()}catch(e){}}else{try{await navigator.clipboard.writeText(txt+' '+url);markInviteShared();alert('Link invito copiato')}catch(e){alert(txt+' '+url)}}}
@@ -247,7 +247,7 @@ const _authBootSafety=setTimeout(()=>{
 window.albertoAuthFns.onAuthStateChanged(window.albertoAuth,async user=>{
  clearTimeout(_authBootSafety);
  const first=!_authBootDone;_authBootDone=true;
- const params=new URLSearchParams(location.search),ref=params.get('ref'),group=params.get('group');
+ const params=new URLSearchParams(location.search),ref=params.get('ref'),group=params.get('group')||localStorage.getItem('albertoPendingGroupInvite')||'';
  if(!user){
    localStorage.removeItem('albertoCustomerCode');
    localStorage.removeItem('albertoProfile');
@@ -263,11 +263,23 @@ window.albertoAuthFns.onAuthStateChanged(window.albertoAuth,async user=>{
  localStorage.setItem('albertoProfile',JSON.stringify(p));
  loadProfile();
  if(group){
-   const box=document.getElementById('groupInviteCurrentAccount'),guest=document.getElementById('groupInviteGuestText'),txt=document.getElementById('groupInviteAccountText');
-   if(box)box.style.display='block';
-   if(guest)guest.style.display='none';
-   if(txt)txt.innerHTML='Sei già collegato come <b>'+escapeHtml([p.name,p.surname].filter(Boolean).join(' ')||user.email||'questo account')+'</b>.<br>Scegli se entrare nel gruppo con questo account oppure usarne un altro.';
-   show('welcome');
+   try{
+     p=await applyPendingGroupInvite(p,code);
+     localStorage.setItem('albertoProfile',JSON.stringify(p));
+     loadProfile();
+     const v=params.get('v')||('join-'+Date.now().toString(36));
+     history.replaceState({},'',location.pathname+'?v='+encodeURIComponent(v));
+     show('bookings');
+     setBookingMode('group');
+     setTimeout(()=>{loadBookingGroupMembers();alert('Sei entrato nel gruppo '+(p.officeGroupName||'Alberto')+' con '+([p.name,p.surname].filter(Boolean).join(' ')||user.email||'questo account')+'.')},150);
+   }catch(e){
+     console.warn('Ingresso automatico nel gruppo non riuscito',e);
+     const box=document.getElementById('groupInviteCurrentAccount'),guest=document.getElementById('groupInviteGuestText'),txt=document.getElementById('groupInviteAccountText');
+     if(box)box.style.display='block';
+     if(guest)guest.style.display='none';
+     if(txt)txt.innerHTML='Sei già collegato come <b>'+escapeHtml([p.name,p.surname].filter(Boolean).join(' ')||user.email||'questo account')+'</b>.<br>Premi il pulsante qui sotto per entrare nel gruppo.';
+     show('welcome');
+   }
    return;
  }
  localStorage.setItem('albertoProfile',JSON.stringify(p));
