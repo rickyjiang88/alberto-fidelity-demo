@@ -59,7 +59,7 @@ import {initializeApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase
 import {getFirestore,doc,onSnapshot,setDoc,getDoc,serverTimestamp,collection,addDoc,getDocs,query,where,limit,orderBy} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {getAuth,createUserWithEmailAndPassword,signInWithEmailAndPassword,sendPasswordResetEmail,signOut,onAuthStateChanged,updateProfile} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 const app=initializeApp({apiKey:"AIzaSyDSZzzgpqudJFgri4INDm1XQNs4ilR8-SU",authDomain:"alberto-tabacchi.firebaseapp.com",projectId:"alberto-tabacchi",storageBucket:"alberto-tabacchi.firebasestorage.app",messagingSenderId:"619128191346",appId:"1:619128191346:web:192da35141c3f5e30f85eb"});
-const db=getFirestore(app),auth=getAuth(app);window.albertoDb=db;window.albertoAuth=auth;window.albertoFs={doc,setDoc,getDoc,serverTimestamp,collection,addDoc,getDocs,query,where,limit,orderBy,onSnapshot};window.albertoAuthFns={createUserWithEmailAndPassword,signInWithEmailAndPassword,sendPasswordResetEmail,signOut,updateProfile};window.dispatchEvent(new Event('albertoFirebaseReady'));
+const db=getFirestore(app),auth=getAuth(app);window.albertoDb=db;window.albertoAuth=auth;window.albertoFs={doc,setDoc,getDoc,serverTimestamp,collection,addDoc,getDocs,query,where,limit,orderBy,onSnapshot};window.albertoAuthFns={createUserWithEmailAndPassword,signInWithEmailAndPassword,sendPasswordResetEmail,signOut,onAuthStateChanged,updateProfile};window.dispatchEvent(new Event('albertoFirebaseReady'));
 const euro=n=>"€ "+Number(n||0).toFixed(2).replace(".",",");
 function renderDaily(data){
  window.dailyAppItems=(Array.isArray(data.items)?data.items:[]).filter(x=>x.available!==false&&String(x.name||"").trim());
@@ -155,7 +155,7 @@ const _authBootSafety=setTimeout(()=>{
  if(visible!=='boot')return;
  if(window.albertoAuth?.currentUser)show('home');else show('welcome');
 },6000);
-onAuthStateChanged(auth,user=>{
+window.albertoAuthFns.onAuthStateChanged(window.albertoAuth,user=>{
  clearTimeout(_authBootSafety);
  const first=!_authBootDone;_authBootDone=true;
  const ref=new URLSearchParams(location.search).get('ref');
