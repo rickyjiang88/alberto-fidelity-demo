@@ -96,7 +96,7 @@ function cartPricing(){
  normal.forEach(u=>lineTotals[u.key]+=u.price);
  unici.forEach(u=>lineTotals[u.key]+=11);
  let labels=[];
- while(primi.length&&secondi.length){const p=primi.shift(),s=secondi.shift();lineTotals[p.key]+=8;lineTotals[s.key]+=5;labels.push('Primo + secondo €13')}
+ while(primi.length&&secondi.length){const p=primi.shift(),s=secondi.shift();lineTotals[p.key]+=8;lineTotals[s.key]+=5;if(contorni.length){const co=contorni.shift();lineTotals[co.key]+=0;labels.push('Primo + secondo + contorno €13')}else{labels.push('Primo + secondo €13')}}
  while(secondi.length&&contorni.length){const s=secondi.shift(),co=contorni.shift();lineTotals[s.key]+=10;lineTotals[co.key]+=0;labels.push('Secondo + contorno €10')}
  while(primi.length&&contorni.length){const p=primi.shift(),co=contorni.shift();lineTotals[p.key]+=10;lineTotals[co.key]+=0;labels.push('Primo + contorno €10')}
  primi.forEach(u=>lineTotals[u.key]+=8);
