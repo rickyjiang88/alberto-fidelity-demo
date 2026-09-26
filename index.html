@@ -133,23 +133,33 @@ function openAccount(){if(window.albertoAuth?.currentUser)show('account');else s
 function show(id){if((id==='login'||id==='register')&&window.albertoAuth?.currentUser){id='account'}setActiveNav(id);if(id==='home'){loadHomeWelcome();window.syncFidelityBalance&&window.syncFidelityBalance()};if(id==='checkout')renderCheckout();if(id==='staffscan')loadFidelityCustomers();if(id==='bookings'){renderBookings();loadBookingGroupMembers();let p={};try{p=JSON.parse(localStorage.getItem('albertoProfile')||'{}')}catch(e){};setTimeout(()=>{const n=document.getElementById('bookName'),ph=document.getElementById('bookPhone');if(n&&!n.value)n.value=[p.name,p.surname].filter(Boolean).join(' ');if(ph&&!ph.value)ph.value=p.phone||''},0)};if(id==='orders')watchCustomerOrders();if(id==='account'){loadProfile();window.syncFidelityBalance&&window.syncFidelityBalance()};if(id==='club'||id==='rewards'){updateClubMarketing();window.syncFidelityBalance&&window.syncFidelityBalance()};if(id==='office')renderOfficeGroup();if(id==='invite'){const il=document.getElementById('inviteLink');if(il)il.textContent=referralUrl();updateInviteShareCount()}document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on'));document.getElementById(id).classList.add('on');document.getElementById('bottomnav').style.display=['boot','welcome','login','register'].includes(id)?'none':'grid';if(id==='fidelity'){window.syncFidelityBalance&&window.syncFidelityBalance();setTimeout(()=>{makeQR();document.getElementById('fidelityQR')?.scrollIntoView({behavior:'smooth',block:'center'})},80)}scrollTo(0,0)}function openQRSheet(){const bg=document.getElementById('qrSheetBg'),el=document.getElementById('quickQR');if(!bg||!el)return;el.innerHTML='';const code=customerCode();try{if(typeof QRCode!=='undefined')new QRCode(el,{text:'ALBERTO-FIDELITY:'+code,width:190,height:190,correctLevel:QRCode.CorrectLevel.H});else el.innerHTML='<div class="qr-fallback"><b>'+code+'</b><small>Codice Fidelity</small></div>'}catch(e){el.innerHTML='<div class="qr-fallback"><b>'+code+'</b><small>Codice Fidelity</small></div>'}bg.classList.add('on');document.body.style.overflow='hidden'}function closeQRSheet(){document.getElementById('qrSheetBg')?.classList.remove('on');document.body.style.overflow=''}
 function makeQR(){const el=document.getElementById('fidelityQR');if(!el)return;el.innerHTML='';const code=customerCode();try{if(typeof QRCode!=='undefined'){new QRCode(el,{text:'ALBERTO-FIDELITY:'+code,width:180,height:180,correctLevel:QRCode.CorrectLevel.H})}else{el.innerHTML='<div class="qr-fallback"><b>'+code+'</b><small>Codice Fidelity</small></div>'}}catch(e){el.innerHTML='<div class="qr-fallback"><b>'+code+'</b><small>Codice Fidelity</small></div>'}}initReferral();updateClubMarketing();window.addEventListener('pageshow',()=>{if(window.albertoAuth?.currentUser)window.syncFidelityBalance&&window.syncFidelityBalance()});document.addEventListener('visibilitychange',()=>{if(!document.hidden&&window.albertoAuth?.currentUser)window.syncFidelityBalance&&window.syncFidelityBalance()});
 let _authBootDone=false;
-onAuthStateChanged(auth,async user=>{
+const _authBootSafety=setTimeout(()=>{
+ const visible=document.querySelector('.screen.on')?.id;
+ if(visible!=='boot')return;
+ if(window.albertoAuth?.currentUser)show('home');else show('welcome');
+},6000);
+onAuthStateChanged(auth,user=>{
+ clearTimeout(_authBootSafety);
  const first=!_authBootDone;_authBootDone=true;
  const ref=new URLSearchParams(location.search).get('ref');
  if(ref&&first){show('register');return}
  if(!user){
-   if(first||window.albertoAuth?.currentUser==null){localStorage.removeItem('albertoCustomerCode');localStorage.removeItem('albertoProfile');show('welcome')}
+   localStorage.removeItem('albertoCustomerCode');
+   localStorage.removeItem('albertoProfile');
+   show('welcome');
    return;
  }
  const uid=user.uid,code='ALB'+uid.slice(0,10).toUpperCase();
  let p=null;
- try{const s=await getDoc(doc(db,'fidelityCustomers',code));if(s.exists())p={code,...s.data()}}catch(e){console.warn('Ripristino profilo Fidelity non disponibile',e)}
- if(!p){try{const cached=JSON.parse(localStorage.getItem('albertoProfile')||'{}');if(cached.uid===uid)p=cached}catch(e){}}
+ try{const cached=JSON.parse(localStorage.getItem('albertoProfile')||'{}');if(cached.uid===uid)p=cached}catch(e){}
  if(!p){const parts=String(user.displayName||'').trim().split(/\s+/);p={uid,code,name:parts.shift()||'Cliente',surname:parts.join(' '),email:user.email||'',phone:'',points:0}}
- localStorage.setItem('albertoCustomerCode',code);localStorage.setItem('albertoProfile',JSON.stringify(p));
- try{window.watchFidelityBalance&&window.watchFidelityBalance()}catch(e){}
+ p.uid=uid;p.code=code;p.email=p.email||user.email||'';
+ localStorage.setItem('albertoCustomerCode',code);
+ localStorage.setItem('albertoProfile',JSON.stringify(p));
  loadProfile();
  const visible=document.querySelector('.screen.on')?.id;
- if(first||['welcome','login','register'].includes(visible))show('home');
+ if(first||['boot','welcome','login','register'].includes(visible))show('home');
+ try{window.watchFidelityBalance&&window.watchFidelityBalance()}catch(e){console.warn('Avvio sincronizzazione Fidelity non riuscito',e)}
+ window.syncFidelityBalance&&window.syncFidelityBalance();
 });
 </script></body></html>
