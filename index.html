@@ -88,7 +88,7 @@ function openLunchComposer(){show('daily');setTimeout(()=>{document.getElementBy
 function addAppItem(cat,i){const x=fullMenu.filter(z=>z[0]===cat)[i],k=x[0]+'|'+x[1],a=appCart.find(z=>z.key===k);if(a)a.qty++;else appCart.push({key:k,name:x[1],price:+x[3],qty:1});updateMini()}
 function addUpsell(name,price){const k='UPSELL|'+name,a=appCart.find(z=>z.key===k);if(a)a.qty++;else appCart.push({key:k,name,price:Number(price),qty:1});updateMini();renderCart()}
 function changeQty(k,d){const x=appCart.find(z=>z.key===k);if(!x)return;x.qty+=d;if(x.qty<1)appCart=appCart.filter(z=>z.key!==k);updateMini();renderCart()}
-function updateMini(){const n=appCart.reduce((s,x)=>s+x.qty,0),t=appCart.reduce((s,x)=>s+x.qty*x.price,0),e=document.getElementById('miniCart');document.getElementById('miniCount').textContent=n;document.getElementById('miniTotal').textContent=money(t);e.classList.toggle('on',n>0)}
+function updateMini(){const n=appCart.reduce((s,x)=>s+x.qty,0),t=appCart.reduce((s,x)=>s+x.qty*x.price,0),e=document.getElementById('miniCart'),page=document.querySelector('.screen.on')?.id||'';document.getElementById('miniCount').textContent=n;document.getElementById('miniTotal').textContent=money(t);const allowed=['menu','pre','daily'];e.classList.toggle('on',n>0&&allowed.includes(page))}
 let fidelityCustomersCache=[];async function loadFidelityCustomers(){const el=document.getElementById('customerList');if(!el)return;el.innerHTML='<small>Caricamento clienti…</small>';try{const fs=window.albertoFs,db=window.albertoDb;if(!fs||!db)throw new Error('db');const snap=await fs.getDocs(fs.query(fs.collection(db,'fidelityCustomers'),fs.limit(100)));fidelityCustomersCache=[];snap.forEach(d=>fidelityCustomersCache.push({code:d.id,...d.data()}));fidelityCustomersCache.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'it'));renderFidelityCustomers(fidelityCustomersCache)}catch(e){el.innerHTML='<small>Lista clienti non disponibile in questa demo.</small>'}}
 function renderFidelityCustomers(list){const el=document.getElementById('customerList');if(!el)return;el.innerHTML=list.length?list.map(c=>'<button class="customer-row" onclick="selectFidelityCustomer(\''+String(c.code||'').replace(/'/g,"\\'")+'\')"><b>'+([c.name,c.surname].filter(Boolean).join(' ')||'Cliente Fidelity')+'</b><small>'+(c.phone||c.email||c.code||'')+'</small><strong>'+Number(c.points||0)+' pt</strong></button>').join(''):'<small>Nessun cliente trovato.</small>'}
 function filterFidelityCustomers(){const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();renderFidelityCustomers(fidelityCustomersCache.filter(c=>[c.name,c.surname,c.phone,c.email,c.code].join(' ').toLowerCase().includes(q)))}
@@ -172,6 +172,7 @@ function show(id){
  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('on'));
  target.classList.add('on');
  updateActivityBack(id);
+ updateMini();
  const nav=document.getElementById('bottomnav');
  if(nav)nav.style.display=['boot','welcome','login','register'].includes(id)?'none':'grid';
  window.scrollTo(0,0);
