@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#c91422">
+<title>Demo PassFacile ↔ Alberto</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Arial;background:#efe8df;color:#1c1815}.app{max-width:540px;margin:auto;min-height:100vh;background:#fffaf4;padding-bottom:30px}.top{position:sticky;top:0;z-index:10;background:#fffaf4eF;backdrop-filter:blur(12px);padding:16px 18px;border-bottom:1px solid #eadfd4;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:1000;color:#c91422;font-size:23px;line-height:.95}.brand small{display:block;color:#655c55;font-size:9px;letter-spacing:1.5px;margin-top:6px}.pill{font-size:10px;font-weight:900;background:#211d1a;color:white;border-radius:999px;padding:8px 10px}.section{padding:18px}.section h1{font-size:31px;line-height:1.02;margin:4px 0 8px}.section h2{font-size:21px;margin:8px 0 12px}.muted{color:#756b64;font-size:13px;line-height:1.45}.card{background:#fff;border:1px solid #eadfd4;border-radius:22px;padding:17px;margin:12px 0;box-shadow:0 8px 26px rgba(60,35,20,.06)}.scanner{background:#211d1a;color:#fff}.scanner small{color:#d5cac2}.scanner button,.btn{border:0;border-radius:14px;padding:13px 14px;font-weight:950;background:#c91422;color:#fff}.scanner .secondary{background:#fff;color:#211d1a}.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.codebox{font:700 18px ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;background:#f1e8dc;border-radius:13px;padding:13px;margin-top:12px}.status{display:flex;gap:10px;align-items:center;background:#f3ece4;border-radius:15px;padding:13px}.dot{width:11px;height:11px;border-radius:50%;background:#b3aaa1}.status.ok .dot{background:#28a745}.status.warn .dot{background:#e2a11b}.status b,.status span{display:block}.status span{font-size:11px;color:#746b65;margin-top:2px}.search{width:100%;padding:14px;border:1px solid #d9cec3;border-radius:13px;font-size:16px}.clients{display:grid;gap:9px;margin-top:12px}.client{width:100%;border:1px solid #e7ddd3;background:white;border-radius:16px;padding:13px;display:flex;align-items:center;gap:11px;text-align:left}.avatar{width:42px;height:42px;border-radius:14px;background:#211d1a;color:white;display:grid;place-items:center;font-weight:950}.client div{flex:1}.client b,.client small{display:block}.client small{color:#746b65;margin-top:2px}.client em{font-style:normal;color:#c91422;font-weight:950}.linked{background:#eaf6ec;border:1px solid #cce8d1}.linkrow{display:flex;justify-content:space-between;gap:10px;align-items:center}.danger{background:#fff;color:#a50e18;border:1px solid #e3b7ba}.hint{font-size:11px;color:#7a716a}.camera-wrap{display:none;margin-top:14px}.camera-wrap.on{display:block}.camera-frame{position:relative;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:3/4}.camera-frame video{width:100%;height:100%;object-fit:cover}.camera-frame:after{content:"";position:absolute;inset:22% 12%;border:3px solid #fff;border-radius:20px;box-shadow:0 0 0 999px rgba(0,0,0,.3)}.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#211d1a;color:#fff;padding:12px 16px;border-radius:13px;font-weight:850;font-size:12px;opacity:0;pointer-events:none;transition:.2s;z-index:50}.toast.on{opacity:1}.credit{display:grid;grid-template-columns:1fr auto;gap:8px}.credit input{padding:13px;border:1px solid #d9cec3;border-radius:12px;font-size:16px}.credit button{border:0;border-radius:12px;background:#c91422;color:white;font-weight:950;padding:0 16px}.tag{font-size:10px;font-weight:950;color:#9e111a;background:#fff0f1;padding:6px 8px;border-radius:999px}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top"><div class="brand">ALBERTO<small>SHOP MANAGE · DEMO</small></div><div class="pill">PASSFACILE ↔ PUNTI</div></header>
+
+<section class="section">
+<small style="font-weight:950;color:#c91422">PROVA FLUSSO CASSA</small>
+<h1>Un QR. Un cliente.</h1>
+<p class="muted">Scansiona il QR PassFacile. Se non è ancora collegato, lo associ una sola volta a un profilo Alberto. Dalla volta successiva viene riconosciuto automaticamente.</p>
+
+<div class="card scanner">
+<small>1 · LEGGI PASSFACILE</small>
+<h2 style="margin-top:6px">Scansiona il QR cliente</h2>
+<div id="scanStatus" class="status"><span class="dot"></span><div><b>Nessun QR letto</b><span>Puoi usare la fotocamera oppure inserire il codice.</span></div></div>
+<div class="actions">
+<button onclick="startCamera()">APRI FOTOCAMERA</button>
+<button class="secondary" onclick="simulateScan()">SIMULA QR</button>
+</div>
+<div class="camera-wrap" id="cameraWrap"><div class="camera-frame"><video id="video" playsinline muted></video></div><button class="secondary" style="width:100%;margin-top:8px" onclick="stopCamera()">CHIUDI FOTOCAMERA</button></div>
+<div style="margin-top:13px"><input id="manualCode" class="search" inputmode="numeric" placeholder="Oppure inserisci codice PassFacile"><button class="secondary" style="width:100%;margin-top:8px" onclick="useManualCode()">USA QUESTO CODICE</button></div>
+<div id="scannedCode" class="codebox" style="display:none"></div>
+</div>
+
+<div id="unknownBox" class="card" style="display:none">
+<div class="linkrow"><div><small>2 · ASSOCIAZIONE</small><h2 style="margin:4px 0">Cliente non associato</h2></div><span class="tag">SOLO LA PRIMA VOLTA</span></div>
+<p class="muted">Cerca il cliente Alberto per nome, telefono o email e collega il suo profilo al QR PassFacile appena letto.</p>
+<input id="customerSearch" class="search" placeholder="Cerca cliente Alberto" oninput="renderClients()">
+<div id="clientList" class="clients"></div>
+</div>
+
+<div id="linkedBox" class="card linked" style="display:none">
+<small>CLIENTE RICONOSCIUTO</small>
+<div class="linkrow"><div><h2 id="linkedName" style="margin:5px 0"></h2><div id="linkedMeta" class="muted"></div></div><span class="tag">COLLEGATO</span></div>
+<div class="codebox" id="linkedCode"></div>
+<div class="card" style="margin-top:14px;background:#fff">
+<small>PUNTI ALBERTO</small>
+<div style="font-size:38px;font-weight:1000" id="linkedPoints">0</div>
+<div class="credit"><input id="paidAmount" inputmode="decimal" placeholder="Importo pagato €"><button onclick="creditPoints()">ACCREDITA</button></div>
+<p class="hint">Demo: €1 pagato = 1 punto. Il credito PassFacile non viene modificato.</p>
+</div>
+<button class="btn danger" style="width:100%;margin-top:10px" onclick="unlinkCurrent()">SCOLLEGA QUESTO QR</button>
+</div>
+
+<div class="card">
+<small>COME FUNZIONEREBBE IN CASSA</small>
+<p class="muted" style="margin-bottom:0">Prima volta: <b>scan PassFacile → cerca cliente Alberto → collega</b>.<br><br>Dalle volte successive: <b>scan PassFacile → cliente riconosciuto → accredita punti dopo il pagamento</b>.</p>
+</div>
+</section>
+</div>
+<div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+const demoClients=[
+ {id:'ALB-DEMO-JESSICA',name:'Jessica',email:'jessica@example.com',phone:'333 123 4567',points:14},
+ {id:'ALB-DEMO-MARCO',name:'Marco Bianchi',email:'marco@example.com',phone:'333 987 6543',points:28},
+ {id:'ALB-DEMO-LUCA',name:'Luca Rossi',email:'luca@example.com',phone:'320 456 7890',points:7}
+];
+let currentCode='',stream=null,raf=null;
+const mappings=()=>JSON.parse(localStorage.getItem('albertoPassFacileDemoMap')||'{}');
+const saveMappings=x=>localStorage.setItem('albertoPassFacileDemoMap',JSON.stringify(x));
+const balances=()=>JSON.parse(localStorage.getItem('albertoPassFacileDemoPoints')||'{}');
+const saveBalances=x=>localStorage.setItem('albertoPassFacileDemoPoints',JSON.stringify(x));
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('on');setTimeout(()=>el.classList.remove('on'),1800)}
+function simulateScan(){handleCode('PF-DEMO-'+Math.floor(100000+Math.random()*900000))}
+function useManualCode(){const v=document.getElementById('manualCode').value.trim();if(!v)return toast('Inserisci un codice');handleCode(v)}
+function handleCode(raw){const code=String(raw||'').trim();if(!code)return;currentCode=code;document.getElementById('scannedCode').style.display='block';document.getElementById('scannedCode').textContent=code;const st=document.getElementById('scanStatus');st.className='status ok';st.innerHTML='<span class="dot"></span><div><b>QR PassFacile letto</b><span>Controllo associazione…</span></div>';stopCamera();const map=mappings();if(map[code])showLinked(map[code]);else showUnknown()}
+function showUnknown(){document.getElementById('linkedBox').style.display='none';document.getElementById('unknownBox').style.display='block';document.getElementById('customerSearch').value='';renderClients()}
+function renderClients(){const q=document.getElementById('customerSearch').value.trim().toLowerCase();const box=document.getElementById('clientList');const rows=demoClients.filter(c=>!q||[c.name,c.email,c.phone].join(' ').toLowerCase().includes(q));box.innerHTML=rows.map(c=>'<button class="client" onclick="linkClient(\''+c.id+'\')"><span class="avatar">'+c.name.charAt(0).toUpperCase()+'</span><div><b>'+c.name+'</b><small>'+c.email+' · '+c.phone+'</small></div><em>COLLEGA</em></button>').join('')||'<div class="hint">Nessun cliente trovato.</div>'}
+function linkClient(id){if(!currentCode)return;const map=mappings();map[currentCode]=id;saveMappings(map);showLinked(id);toast('QR PassFacile collegato')}
+function showLinked(id){const c=demoClients.find(x=>x.id===id);if(!c){showUnknown();return}document.getElementById('unknownBox').style.display='none';document.getElementById('linkedBox').style.display='block';document.getElementById('linkedName').textContent=c.name;document.getElementById('linkedMeta').textContent=c.email+' · '+c.phone;document.getElementById('linkedCode').textContent='PassFacile: '+currentCode;const b=balances();document.getElementById('linkedPoints').textContent=(b[id]??c.points);document.getElementById('scanStatus').querySelector('span:last-child')?.remove}
+function creditPoints(){const map=mappings(),id=map[currentCode],c=demoClients.find(x=>x.id===id);if(!c)return;const amount=Number(String(document.getElementById('paidAmount').value).replace(',','.'));if(!(amount>0))return toast('Inserisci importo pagato');const add=Math.floor(amount),b=balances();b[id]=Number(b[id]??c.points)+add;saveBalances(b);document.getElementById('linkedPoints').textContent=b[id];document.getElementById('paidAmount').value='';toast('+'+add+' punti accreditati')}
+function unlinkCurrent(){if(!currentCode)return;const map=mappings();delete map[currentCode];saveMappings(map);showUnknown();toast('Associazione rimossa')}
+async function startCamera(){const wrap=document.getElementById('cameraWrap'),video=document.getElementById('video');try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});video.srcObject=stream;await video.play();wrap.classList.add('on');scanLoop()}catch(e){toast('Fotocamera non disponibile: usa il codice manuale')}}
+function stopCamera(){if(raf)cancelAnimationFrame(raf);raf=null;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}document.getElementById('cameraWrap').classList.remove('on')}
+async function scanLoop(){const video=document.getElementById('video');if(!stream)return;try{if('BarcodeDetector' in window){const detector=new BarcodeDetector({formats:['qr_code']});const found=await detector.detect(video);if(found[0]?.rawValue){handleCode(found[0].rawValue);return}}else if(window.jsQR&&video.videoWidth){const c=document.createElement('canvas');c.width=video.videoWidth;c.height=video.videoHeight;const x=c.getContext('2d');x.drawImage(video,0,0);const img=x.getImageData(0,0,c.width,c.height);const qr=jsQR(img.data,img.width,img.height);if(qr?.data){handleCode(qr.data);return}}}catch(e){}raf=requestAnimationFrame(scanLoop)}
+renderClients();
+</script>
+</body>
+</html>
