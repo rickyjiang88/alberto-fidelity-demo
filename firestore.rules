@@ -49,6 +49,41 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /officeGroups/{groupCode} {
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+
+      allow read: if signedIn()
+        && exists(/databases/$(database)/documents/officeGroups/$(groupCode)/members/$(request.auth.uid));
+
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid;
+
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+
+      match /members/{uid} {
+        allow create: if signedIn()
+          && uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && exists(/databases/$(database)/documents/officeGroups/$(groupCode));
+
+        allow read: if signedIn()
+          && exists(/databases/$(database)/documents/officeGroups/$(groupCode)/members/$(request.auth.uid));
+
+        allow update: if signedIn()
+          && uid == request.auth.uid
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid;
+
+        allow delete: if isAdmin()
+          || (signedIn() && uid == request.auth.uid)
+          || (signedIn()
+              && get(/databases/$(database)/documents/officeGroups/$(groupCode)).data.ownerUid == request.auth.uid);
+      }
+    }
+
     match /settings/{docId} {
       allow read: if true;
       allow write: if isAdmin();
