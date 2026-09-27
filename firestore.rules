@@ -3,90 +3,134 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() {
-      return request.auth != null;
+    match /orders/{orderId} {
+      // Il sito può creare ordini e prenotazioni
+      allow create: if true;
+
+      // Il cliente vede i propri ordini/prenotazioni.
+      // I partecipanti selezionati vedono la stessa prenotazione di gruppo.
+      // L'amministratore vede tutto.
+      allow read:
+        if request.auth != null
+        && (
+          request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43"
+          || resource.data.customerUid == request.auth.uid
+          || (
+            resource.data.groupMemberUids is list
+            && request.auth.uid in resource.data.groupMemberUids
+          )
+        );
+
+      // Solo l'amministratore modifica o elimina
+      allow update, delete:
+        if request.auth != null
+        && request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43";
     }
 
-    function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+    match /counters/{day} {
+      allow read, create, update: if true;
+    }
+
+    match /settings/{document} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43";
+    }
+
+    // ALBERTO FIDELITY
+    match /fidelityUsers/{uid} {
+      allow create, read, update:
+        if request.auth != null
+        && request.auth.uid == uid;
     }
 
     match /fidelityCustomers/{code} {
-      allow create: if signedIn()
+      allow create:
+        if request.auth != null
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.points == 0;
 
-      allow read: if isAdmin()
-        || (signedIn() && resource.data.uid == request.auth.uid);
+      allow read:
+        if request.auth != null
+        && (
+          resource.data.uid == request.auth.uid
+          || request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43"
+        );
 
-      allow update: if isAdmin()
-        || (signedIn()
-            && resource.data.uid == request.auth.uid
+      allow update:
+        if request.auth != null
+        && (
+          (
+            resource.data.uid == request.auth.uid
             && request.resource.data.uid == request.auth.uid
-            && request.resource.data.points == resource.data.points);
-
-      allow delete: if isAdmin();
+            && request.resource.data.points == resource.data.points
+          )
+          || request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43"
+        );
     }
 
-    match /fidelityUsers/{uid} {
-      allow create: if signedIn() && uid == request.auth.uid;
-      allow read: if isAdmin() || (signedIn() && uid == request.auth.uid);
-      allow update, delete: if isAdmin() || (signedIn() && uid == request.auth.uid);
-    }
+    match /fidelityTransactions/{transactionId} {
+      allow read, create:
+        if request.auth != null
+        && request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43";
 
-    match /fidelityTransactions/{id} {
-      allow read: if isAdmin();
-      allow create: if isAdmin();
       allow update, delete: if false;
     }
 
     match /referrals/{id} {
-      allow create: if signedIn()
+      allow create:
+        if request.auth != null
         && request.resource.data.invitedCustomer == id;
-      allow read: if isAdmin()
-        || (signedIn() && resource.data.invitedCustomer == id)
-        || (signedIn() && resource.data.referrerCode == id);
-      allow update, delete: if isAdmin();
     }
 
+    // GRUPPI UFFICIO
     match /officeGroups/{groupCode} {
-      allow create: if signedIn()
+
+      allow create:
+        if request.auth != null
         && request.resource.data.ownerUid == request.auth.uid;
 
-      allow read: if signedIn()
-        && exists(/databases/$(database)/documents/officeGroups/$(groupCode)/members/$(request.auth.uid));
+      allow read:
+        if request.auth != null
+        && exists(
+          /databases/$(database)/documents/officeGroups/$(groupCode)/members/$(request.auth.uid)
+        );
 
-      allow update: if signedIn()
-        && resource.data.ownerUid == request.auth.uid
-        && request.resource.data.ownerUid == request.auth.uid;
-
-      allow delete: if isAdmin()
-        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow update, delete:
+        if request.auth != null
+        && resource.data.ownerUid == request.auth.uid;
 
       match /members/{uid} {
-        allow create: if signedIn()
+
+        allow create:
+          if request.auth != null
           && uid == request.auth.uid
           && request.resource.data.uid == request.auth.uid
-          && exists(/databases/$(database)/documents/officeGroups/$(groupCode));
+          && exists(
+            /databases/$(database)/documents/officeGroups/$(groupCode)
+          );
 
-        allow read: if signedIn()
-          && exists(/databases/$(database)/documents/officeGroups/$(groupCode)/members/$(request.auth.uid));
+        allow read:
+          if request.auth != null
+          && exists(
+            /databases/$(database)/documents/officeGroups/$(groupCode)/members/$(request.auth.uid)
+          );
 
-        allow update: if signedIn()
+        allow update:
+          if request.auth != null
           && uid == request.auth.uid
           && resource.data.uid == request.auth.uid
           && request.resource.data.uid == request.auth.uid;
 
-        allow delete: if isAdmin()
-          || (signedIn() && uid == request.auth.uid)
-          || (signedIn()
-              && get(/databases/$(database)/documents/officeGroups/$(groupCode)).data.ownerUid == request.auth.uid);
+        allow delete:
+          if request.auth != null
+          && (
+            uid == request.auth.uid
+            || get(
+              /databases/$(database)/documents/officeGroups/$(groupCode)
+            ).data.ownerUid == request.auth.uid
+          );
       }
-    }
-
-    match /settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
     }
 
     match /{document=**} {
