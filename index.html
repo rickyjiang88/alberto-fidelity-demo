@@ -302,5 +302,6 @@ window.albertoAuthFns.onAuthStateChanged(window.albertoAuth,async user=>{
  if(first||['boot','welcome','login','register'].includes(visible))show('home');
  try{window.watchFidelityBalance&&window.watchFidelityBalance()}catch(e){console.warn('Avvio sincronizzazione Fidelity non riuscito',e)}
  window.syncFidelityBalance&&window.syncFidelityBalance();
+ setTimeout(()=>watchAppNotifications(),0);
 });
 </script></body></html>
