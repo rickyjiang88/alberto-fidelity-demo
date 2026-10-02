@@ -255,7 +255,7 @@ let _authBootDone=false;
    if(cached&&cached.uid&&cached.code){
      loadProfile();
      renderWallet();
-     show('home');
+     show(new URLSearchParams(location.search).get('view')==='profile'?'account':'home');
    }
  }catch(e){}
 })();
@@ -267,7 +267,7 @@ const _authBootSafety=setTimeout(()=>{
 window.albertoAuthFns.onAuthStateChanged(window.albertoAuth,async user=>{
  clearTimeout(_authBootSafety);
  const first=!_authBootDone;_authBootDone=true;
- const params=new URLSearchParams(location.search),ref=params.get('ref'),group=params.get('group')||localStorage.getItem('albertoPendingGroupInvite')||'';
+ const params=new URLSearchParams(location.search),ref=params.get('ref'),group=params.get('group')||localStorage.getItem('albertoPendingGroupInvite')||'',requestedView=params.get('view')||'';
  if(!user){
    localStorage.removeItem('albertoCustomerCode');
    localStorage.removeItem('albertoProfile');
@@ -307,7 +307,7 @@ window.albertoAuthFns.onAuthStateChanged(window.albertoAuth,async user=>{
  localStorage.setItem('albertoProfile',JSON.stringify(p));
  if(p.officeGroupCode||p.groupCode)syncGroupMemberOnline(p.officeGroupCode||p.groupCode,p,{ownerCode:p.officeGroupOwnerCode||'',ownerName:p.officeGroupOwnerName||'',groupName:p.officeGroupName||'Gruppo Alberto'});
  const visible=document.querySelector('.screen.on')?.id;
- if(first||['boot','welcome','login','register'].includes(visible))show('home');
+ if(first||['boot','welcome','login','register'].includes(visible))show(requestedView==='profile'?'account':'home');
  try{window.watchFidelityBalance&&window.watchFidelityBalance()}catch(e){console.warn('Avvio sincronizzazione Fidelity non riuscito',e)}
  window.syncFidelityBalance&&window.syncFidelityBalance();
  setTimeout(()=>watchAppNotifications(),0);
