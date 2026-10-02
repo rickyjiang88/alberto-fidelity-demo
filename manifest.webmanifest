@@ -1,0 +1,20 @@
+{
+  "name": "Alberto",
+  "short_name": "Alberto",
+  "description": "Preordini, prenotazioni, Fidelity e area cliente Alberto.",
+  "lang": "it",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fffaf4",
+  "theme_color": "#c91422",
+  "icons": [
+    {
+      "src": "assets/alberto-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
