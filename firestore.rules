@@ -4,11 +4,37 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     match /orders/{orderId} {
-      // Il sito può creare ordini e prenotazioni
-      allow create: if true;
+      // Creazione pubblica consentita solo per richieste nel formato previsto.
+      // Se il cliente è autenticato, l'ordine deve appartenere al suo UID.
+      allow create:
+        if (
+          (
+            request.resource.data.type == "PREORDER"
+            && request.resource.data.status == "NUOVO"
+            && request.resource.data.items is list
+            && request.resource.data.items.size() > 0
+            && request.resource.data.items.size() <= 100
+            && request.resource.data.total >= 0
+            && request.resource.data.total <= 10000
+          )
+          ||
+          (
+            request.resource.data.type == "TABLE_BOOKING"
+            && request.resource.data.status == "IN ATTESA"
+            && request.resource.data.bookingStatus == "IN ATTESA"
+            && request.resource.data.covers >= 1
+            && request.resource.data.covers <= 200
+            && request.resource.data.date is string
+            && request.resource.data.time is string
+          )
+        )
+        && (
+          (request.auth == null && request.resource.data.customerUid == null)
+          || (request.auth != null && request.resource.data.customerUid == request.auth.uid)
+        );
 
       // Il cliente vede i propri ordini/prenotazioni.
-      // I partecipanti selezionati vedono la stessa prenotazione di gruppo.
+      // I membri dello stesso gruppo vedono la prenotazione condivisa.
       // L'amministratore vede tutto.
       allow read:
         if request.auth != null
@@ -27,14 +53,27 @@ service cloud.firestore {
           )
         );
 
-      // Solo l'amministratore modifica o elimina
+      // Solo l'amministratore modifica o elimina.
       allow update, delete:
         if request.auth != null
         && request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43";
     }
 
     match /counters/{day} {
-      allow read, create, update: if true;
+      // Il contatore resta leggibile per consentire il numero progressivo,
+      // ma non può più essere riscritto con valori arbitrari.
+      allow read: if true;
+
+      allow create:
+        if request.resource.data.last == 1
+        && request.resource.data.day == day;
+
+      allow update:
+        if request.resource.data.last == resource.data.last + 1
+        && request.resource.data.day == resource.data.day
+        && request.resource.data.day == day;
+
+      allow delete: if false;
     }
 
     match /settings/{document} {
