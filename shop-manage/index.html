@@ -62,7 +62,7 @@ window.renderDashboard=()=>{
  const today=todayRome(),rows=allOrders.filter(o=>orderLocalDay(o)===today);
  const active=rows.filter(o=>o.status!=="CONSEGNATO").length,ready=rows.filter(o=>o.status==="PRONTO").length;
  const total=rows.reduce((sum,o)=>sum+Number(o.total||0),0);
- const todayBookings=allBookings.filter(b=>b.date===today),confirmed=todayBookings.filter(b=>["CONFERMATA","ARRIVATO"].includes(b.bookingStatus)),waiting=todayBookings.filter(b=>b.bookingStatus==="IN ATTESA"),counted=bookingTotals(confirmed);const kpis=[["ORDINI RICEVUTI",String(rows.length),"Oggi"],["DA PREPARARE / RITIRARE",String(active),"Ordini ancora attivi"],["PRONTI",String(ready),"In attesa del cliente"],["VALORE PREORDINI","€ "+total.toFixed(2).replace(".",","),"Valore degli ordini, non incasso verificato"],["PRENOTAZIONI CONFERMATE",String(confirmed.length),"Tavoli prenotati oggi"],["COPERTI PRENOTATI",counted.people+(counted.unspecified?" + gruppi da definire":""),counted.unspecified?counted.unspecified+" prenotazioni da oltre 10 coperti":"Confermati"],["RICHIESTE TAVOLI",String(waiting.length),"Da confermare su WhatsApp"]];
+ const todayBookings=allBookings.filter(b=>b.date===today),confirmed=todayBookings.filter(b=>["CONFERMATA","ARRIVATO"].includes(b.bookingStatus)),waiting=todayBookings.filter(b=>b.bookingStatus==="IN ATTESA"),counted=bookingTotals(confirmed);const kpis=[["ORDINI RICEVUTI",String(rows.length),"Oggi"],["DA PREPARARE / RITIRARE",String(active),"Ordini ancora attivi"],["PRONTI",String(ready),"In attesa del cliente"],["VALORE PREORDINI","€ "+total.toFixed(2).replace(".",","),"Valore degli ordini, non incasso verificato"],["PRENOTAZIONI CONFERMATE",String(confirmed.length),"Tavoli prenotati oggi"],["COPERTI PRENOTATI",counted.people+(counted.unspecified?" + gruppi da definire":""),counted.unspecified?counted.unspecified+" prenotazioni da oltre 10 coperti":"Confermati"],["RICHIESTE TAVOLI",String(waiting.length),"Da confermare dal pannello"]];
  document.getElementById("dashKpis").innerHTML=kpis.map(x=>'<div class="dash-tile"><small>'+x[0]+'</small><strong>'+x[1]+'</strong><em>'+x[2]+'</em></div>').join("");
  const esc=s=>String(s??"").replace(/[&<>"]/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[x]));
  document.getElementById("dashRecent").innerHTML=rows.length?rows.slice(0,5).map(o=>'<div><span><b>'+(o.orderNumber?"#"+String(o.orderNumber).padStart(4,"0"):"ORDINE")+'</b> · '+esc(o.name||"")+' · ritiro '+esc(o.time||"")+'</span><small>'+esc(o.status||"NUOVO")+' · € '+Number(o.total||0).toFixed(2).replace(".",",")+'</small></div>').join(""):"Nessun ordine ricevuto oggi.";
@@ -82,21 +82,39 @@ window.renderBookings=()=>{
  list.innerHTML=rows.length?rows.map(b=>{
   const status=b.bookingStatus||"IN ATTESA",id=bookingSafe(b.id),number=Number(b.covers),unknown=!Number.isInteger(number)||number<1||number>200;
   const badgeClass=status==="IN ATTESA"?"booking-waiting":status==="ANNULLATA"?"booking-cancelled":"booking-confirmed";
-  const phone=String(b.phone||"").replace(/[^0-9+]/g,""),statusActions=status==="ANNULLATA"?'<button onclick="window.setBookingStatus(\''+id+'\',\'IN ATTESA\')">RIPRISTINA</button>':
+  const phone=String(b.phone||"").replace(/[^0-9+]/g,""),statusActions=status==="ANNULLATA"?'<button onclick="window.setBookingStatus(\''+id+'\',\'IN ATTESA\')">RIPRISTINA</button>':status==="ARRIVATO"?'<button disabled class="primary">ARRIVATO ✓</button>':
    '<button '+(status==="CONFERMATA"?'disabled':'class="primary"')+' onclick="window.setBookingStatus(\''+id+'\',\'CONFERMATA\')">CONFERMATA</button>'+
-
+   '<button '+(status==="CONFERMATA"?'class="primary"':'')+' onclick="window.setBookingStatus(\''+id+'\',\'ARRIVATO\')">ARRIVATO</button>'+
    '<button onclick="window.setBookingStatus(\''+id+'\',\'ANNULLATA\')">ANNULLA</button>';
-  return '<article class="card booking-card"><div class="booking-card-head"><h3>'+bookingSafe(b.time||"")+' · '+bookingSafe(b.name||"")+'</h3><span class="booking-label '+badgeClass+'">'+bookingSafe(status)+'</span></div><p><b>Coperti:</b> '+(unknown?"OLTRE 10 · NUMERO DA PRECISARE":number)+'</p><p><b>Telefono:</b> <a href="tel:'+bookingSafe(phone)+'">'+bookingSafe(b.phone||"")+'</a></p><small class="status-note">Il cliente ha inviato la richiesta. Premi CONFERMATA per inviargli l’ok.</small>'+
+  return '<article class="card booking-card"><div class="booking-card-head"><h3>'+bookingSafe(b.time||"")+' · '+bookingSafe(b.name||"")+'</h3><span class="booking-label '+badgeClass+'">'+bookingSafe(status)+'</span></div><p><b>Coperti:</b> '+(unknown?"OLTRE 10 · NUMERO DA PRECISARE":number)+'</p><p><b>Telefono:</b> <a href="tel:'+bookingSafe(phone)+'">'+bookingSafe(b.phone||"")+'</a></p><small class="status-note">'+(status==="IN ATTESA"?"Il cliente ha inviato la richiesta. Premi CONFERMATA per inviargli l’ok.":status==="CONFERMATA"?"Prenotazione confermata. Quando si presenta, premi ARRIVATO.":status==="ARRIVATO"?"Arrivo registrato e punto prenotazione assegnato ai clienti registrati presenti.":"Prenotazione annullata.")+'</small>'+
    (unknown?'<div class="covers-entry"><label for="covers-'+id+'">COPERTI EFFETTIVI</label><input type="number" id="covers-'+id+'" min="11" max="200" placeholder="N°"><button onclick="window.saveBookingCovers(\''+id+'\')">SALVA COPERTI</button></div>':"")+
    '<div class="booking-actions">'+statusActions+'</div></article>';
  }).join(""):'<div class="card"><p>Nessuna richiesta di prenotazione per la data selezionata.</p></div>';
 };
 window.setBookingStatus=async(id,status)=>{
- if(!["IN ATTESA","CONFERMATA","ANNULLATA"].includes(status))return;
+ if(!["IN ATTESA","CONFERMATA","ARRIVATO","ANNULLATA"].includes(status))return;
  const b=allBookings.find(x=>x.id===id);if(!b||!auth.currentUser||auth.currentUser.uid!==ADMIN_UID)return;
  if(status==="ANNULLATA"&&!confirm("Annullare la prenotazione di "+b.name+"?"))return;
+ if(status==="ARRIVATO"&&!confirm("Confermi che la prenotazione di "+b.name+" è arrivata? Verrà assegnato 1 punto ai clienti registrati presenti."))return;
  const cards=document.querySelectorAll("#bookingList button");cards.forEach(btn=>btn.disabled=true);
- try{const patch={bookingStatus:status,bookingUpdatedAt:serverTimestamp()};if(status==="CONFERMATA")patch.bookingConfirmedAt=serverTimestamp();await updateDoc(doc(db,"orders",id),patch);}
+ try{
+   if(status==="ARRIVATO"){
+     await runTransaction(db,async tx=>{
+       const bookingRef=doc(db,"orders",id),snap=await tx.get(bookingRef);if(!snap.exists())throw new Error("Prenotazione non trovata");
+       const current=snap.data();if(current.arrivalPointsAwarded){tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp()});return}
+       const codes=new Set();
+       if(current.customerCode)codes.add(String(current.customerCode));
+       if(Array.isArray(current.groupMembers))current.groupMembers.forEach(m=>{if(m&&m.code)codes.add(String(m.code))});
+       for(const code of codes){
+         const customerRef=doc(db,"fidelityCustomers",code),customerSnap=await tx.get(customerRef);
+         if(customerSnap.exists()){const old=Number(customerSnap.data().points||0);tx.update(customerRef,{points:old+1,updatedAt:serverTimestamp(),lastVisitAt:serverTimestamp()});const tr=doc(collection(db,"fidelityTransactions"));tx.set(tr,{customerCode:code,points:1,type:"booking_arrival",bookingId:id,createdAt:serverTimestamp(),createdBy:auth.currentUser.uid})}
+       }
+       tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp(),arrivalPointsAwarded:true});
+     });
+   }else{
+     const patch={bookingStatus:status,bookingUpdatedAt:serverTimestamp()};if(status==="CONFERMATA")patch.bookingConfirmedAt=serverTimestamp();await updateDoc(doc(db,"orders",id),patch);
+   }
+ }
  catch(e){console.error(e);alert("Non è stato possibile aggiornare la prenotazione.");window.renderBookings();}
 };
 window.saveBookingCovers=async id=>{
@@ -182,5 +200,5 @@ window.saveServiceSettings=async()=>{
  const ok=await saveShopControls({...shopControl,storeEnabled:enabled,cutoff,pickupTimes:times});
  btn.disabled=false;if(ok)alert("Orari salvati. Il negozio è "+(enabled?"attivo.":"temporaneamente chiuso."));
 };
-window.setOrderStatus=async(id,status)=>{const patch={status,statusUpdatedAt:serverTimestamp()};if(status==="CONFERMATO")patch.confirmedAt=serverTimestamp();await updateDoc(doc(db,"orders",id),patch)};
+window.setOrderStatus=async(id,status)=>{if(!["CONFERMATO","IN PREPARAZIONE","PRONTO","CONSEGNATO"].includes(status))return;const o=allOrders.find(x=>x.id===id);if(!o||!auth.currentUser||auth.currentUser.uid!==ADMIN_UID)return;if(status!=="CONFERMATO"&&(o.status==="NUOVO"||!o.status))return alert("Conferma prima l’ordine.");const patch={status,statusUpdatedAt:serverTimestamp()};if(status==="CONFERMATO"&&!o.confirmedAt)patch.confirmedAt=serverTimestamp();await updateDoc(doc(db,"orders",id),patch)};
 </script></body></html>
