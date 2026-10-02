@@ -103,8 +103,9 @@ window.setBookingStatus=async(id,status)=>{
        const bookingRef=doc(db,"orders",id),snap=await tx.get(bookingRef);if(!snap.exists())throw new Error("Prenotazione non trovata");
        const current=snap.data();if(current.arrivalPointsAwarded){tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp()});return}
        const codes=new Set();
-       if(current.customerCode)codes.add(String(current.customerCode));
+       if(current.bookingType!=="group"&&current.customerCode)codes.add(String(current.customerCode));
        if(Array.isArray(current.groupMembers))current.groupMembers.forEach(m=>{if(m&&m.code)codes.add(String(m.code))});
+       if(current.bookingType==="group"&&codes.size===0&&current.customerCode)codes.add(String(current.customerCode));
        const refs=[...codes].map(code=>({code,ref:doc(db,"fidelityCustomers",code)}));
        const snaps=await Promise.all(refs.map(x=>tx.get(x.ref)));
        refs.forEach((x,i)=>{const customerSnap=snaps[i];if(customerSnap.exists()){const old=Number(customerSnap.data().points||0);tx.update(x.ref,{points:old+1,updatedAt:serverTimestamp(),lastVisitAt:serverTimestamp()});const tr=doc(collection(db,"fidelityTransactions"));tx.set(tr,{customerCode:x.code,points:1,type:"booking_arrival",bookingId:id,createdAt:serverTimestamp(),createdBy:auth.currentUser.uid})}});
