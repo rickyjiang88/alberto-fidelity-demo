@@ -25,10 +25,133 @@ let fidelityCustomers=[],fidelitySelected=null,fidelityScanTimer=null;
 function fidEsc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 window.loadFidelityCustomers=async()=>{const el=document.getElementById('fidCustomerList');if(!el)return;try{const s=await getDocs(query(collection(db,'fidelityCustomers'),limit(200)));fidelityCustomers=[];s.forEach(x=>fidelityCustomers.push({code:x.id,...x.data()}));window.filterFidelityCustomers()}catch(e){el.innerHTML='<p>Impossibile caricare i clienti Fidelity.</p>'}};
 window.filterFidelityCustomers=()=>{const el=document.getElementById('fidCustomerList');if(!el)return;const q=(document.getElementById('fidSearch')?.value||'').toLowerCase();const a=fidelityCustomers.filter(c=>[c.name,c.surname,c.phone,c.email,c.code].join(' ').toLowerCase().includes(q));el.innerHTML=a.length?a.map(c=>'<button type="button" onclick="window.openFidelityCustomer(\''+fidEsc(c.code)+'\')" style="width:100%;display:grid;grid-template-columns:1fr auto;gap:5px;text-align:left;border:0;border-top:1px solid #eee;background:#fff;padding:13px 4px"><span><b>'+fidEsc([c.name,c.surname].filter(Boolean).join(' ')||'Cliente Fidelity')+'</b><small style="display:block;color:#666">'+fidEsc(c.phone||c.email||c.code)+'</small></span><strong style="color:#b5101b">'+Number(c.points||0)+' pt</strong></button>').join(''):'<p>Nessun cliente trovato.</p>'};
-window.openFidelityCustomer=async code=>{let c=fidelityCustomers.find(x=>x.code===code);if(!c){const s=await getDoc(doc(db,'fidelityCustomers',code));if(!s.exists()){alert('Cliente Fidelity non trovato: '+code);return}c={code:s.id,...s.data()};fidelityCustomers.push(c)}fidelitySelected=c;let box=document.getElementById('fidSelectedBox');if(!box){box=document.createElement('div');box.id='fidSelectedBox';box.className='card';document.getElementById('fidelityPanel').appendChild(box)}box.innerHTML='<small>CLIENTE SELEZIONATO</small><h2>'+fidEsc([c.name,c.surname].filter(Boolean).join(' ')||'Cliente Fidelity')+'</h2><p>'+fidEsc(c.code)+' · <b>'+Number(c.points||0)+' punti</b></p><label class="fieldlabel">IMPORTO SCONTRINO €</label><input id="fidAmount" type="number" min="0" step=".01" inputmode="decimal" placeholder="0,00" oninput="document.getElementById(\'fidPreview\').textContent=Math.floor(Number(this.value)||0)+\' punti\'"><p>Punti da accreditare: <b id="fidPreview">0 punti</b></p><button class="red" type="button" onclick="window.creditFidelity()">CONFERMA PUNTI</button><button type="button" style="margin-left:8px" onclick="window.adjustFidelity()">CORREZIONE MANUALE</button><div id="fidHistory" style="margin-top:15px"></div>';window.loadFidelityHistory(code);window.closeFidelityCamera();box.scrollIntoView({behavior:'smooth'})};
-window.creditFidelity=async()=>{if(!fidelitySelected)return;const amount=Number(document.getElementById('fidAmount')?.value);if(!(amount>0))return alert('Inserisci l’importo dello scontrino.');const pts=Math.floor(amount);const code=fidelitySelected.code;try{await runTransaction(db,async tx=>{const cr=doc(db,'fidelityCustomers',code),cs=await tx.get(cr);if(!cs.exists())throw new Error('Cliente non trovato');const old=Number(cs.data().points||0);tx.update(cr,{points:old+pts,lastPurchaseAt:serverTimestamp(),updatedAt:serverTimestamp()});const tr=doc(collection(db,'fidelityTransactions'));tx.set(tr,{customerCode:code,amount,points:pts,type:'receipt',createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null})});fidelitySelected.points=Number(fidelitySelected.points||0)+pts;alert('Accreditati '+pts+' punti.');window.loadFidelityCustomers();window.openFidelityCustomer(code)}catch(e){alert('Accredito non riuscito: '+e.message)}};
+window.fidMoney=v=>'€ '+Number(v||0).toFixed(2).replace('.',',');
+window.openFidelityCustomer=async code=>{
+  code=String(code||'').trim().toUpperCase();
+  let snap;try{snap=await getDoc(doc(db,'fidelityCustomers',code))}catch(e){alert('Cliente Fidelity non disponibile.');return}
+  if(!snap.exists()){alert('Cliente Fidelity non trovato: '+code);return}
+  const fresh={code:snap.id,...snap.data()};
+  const idx=fidelityCustomers.findIndex(x=>x.code===code);if(idx>=0)fidelityCustomers[idx]=fresh;else fidelityCustomers.push(fresh);
+  fidelitySelected=fresh;
+  let box=document.getElementById('fidSelectedBox');
+  if(!box){box=document.createElement('div');box.id='fidSelectedBox';box.className='card';document.getElementById('fidelityPanel').appendChild(box)}
+  const name=[fresh.name,fresh.surname].filter(Boolean).join(' ')||'Cliente Fidelity';
+  const points=Number(fresh.points||0),wallet=Number(fresh.walletBalance||0);
+  box.innerHTML=
+    '<small>CLIENTE SELEZIONATO</small>'+
+    '<h2 style="margin-bottom:5px">'+fidEsc(name)+'</h2>'+
+    '<p style="margin-top:0">'+fidEsc(fresh.code)+' · '+fidEsc(fresh.phone||fresh.email||'')+'</p>'+
+    '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0">'+
+      '<div style="background:#211d1a;color:#fff;border-radius:14px;padding:14px"><small>PUNTI</small><strong style="display:block;font-size:28px;margin-top:5px">'+points+'</strong></div>'+
+      '<div style="background:#f2ebe3;border-radius:14px;padding:14px"><small>PORTAFOGLIO</small><strong style="display:block;font-size:28px;margin-top:5px">'+window.fidMoney(wallet)+'</strong></div>'+
+    '</div>'+
+    '<div style="border-top:1px solid #eee;padding-top:14px">'+
+      '<b>ACQUISTO</b><p class="status-note">Inserisci l’importo finale dello scontrino. 1 € = 1 punto.</p>'+
+      '<label class="fieldlabel">IMPORTO €</label><input id="fidAmount" type="number" min="0" step=".01" inputmode="decimal" placeholder="0,00" oninput="window.updateFidelityPurchasePreview()">'+
+      '<p id="fidPreview" style="font-weight:800">0 punti · saldo dopo pagamento: '+window.fidMoney(wallet)+'</p>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="red" type="button" onclick="window.payFidelityWallet()">PAGA CON PORTAFOGLIO + PUNTI</button><button type="button" onclick="window.creditFidelity()">PAGATO IN CASSA · AGGIUNGI PUNTI</button></div>'+
+    '</div>'+
+    '<div style="border-top:1px solid #eee;margin-top:16px;padding-top:14px">'+
+      '<b>RICARICA PORTAFOGLIO</b><p class="status-note">Bonus automatico del 10% per ricariche da 80 € in su.</p>'+
+      '<label class="fieldlabel">RICARICA €</label><input id="fidTopup" type="number" min="1" step=".01" inputmode="decimal" placeholder="80,00" oninput="window.updateFidelityTopupPreview()">'+
+      '<p id="fidTopupPreview" style="font-weight:800">Inserisci l’importo della ricarica.</p>'+
+      '<button class="red" type="button" onclick="window.topupFidelityWallet()">RICARICA PORTAFOGLIO</button>'+
+    '</div>'+
+    '<div style="border-top:1px solid #eee;margin-top:16px;padding-top:14px">'+
+      '<b>PREMIO</b><p class="status-note">300 punti = buono da 10 €.</p>'+
+      '<button type="button" '+(points<300?'disabled':'')+' onclick="window.redeemFidelityReward()">USA BUONO 10 € · -300 PUNTI</button>'+
+      (points<300?'<small style="display:block;margin-top:7px;color:#666">Mancano '+(300-points)+' punti.</small>':'')+
+    '</div>'+
+    '<div style="border-top:1px solid #eee;margin-top:16px;padding-top:14px"><button type="button" onclick="window.adjustFidelity()">CORREZIONE MANUALE</button></div>'+
+    '<div id="fidHistory" style="margin-top:15px"></div>';
+  window.updateFidelityPurchasePreview();
+  window.loadFidelityHistory(code);
+  window.closeFidelityCamera();
+  box.scrollIntoView({behavior:'smooth',block:'start'});
+};
+window.updateFidelityPurchasePreview=()=>{
+  if(!fidelitySelected)return;
+  const amount=Math.max(0,Number(document.getElementById('fidAmount')?.value||0)),pts=Math.floor(amount),wallet=Number(fidelitySelected.walletBalance||0),after=wallet-amount;
+  const el=document.getElementById('fidPreview');if(el)el.textContent=pts+' punti · saldo portafoglio dopo: '+window.fidMoney(Math.max(0,after))+(after<0?' · credito insufficiente':'');
+};
+window.updateFidelityTopupPreview=()=>{
+  const amount=Math.max(0,Number(document.getElementById('fidTopup')?.value||0)),bonus=amount>=80?Math.round(amount*10)/100:0,total=amount+bonus,el=document.getElementById('fidTopupPreview');
+  if(el)el.textContent=amount>0?('Versi '+window.fidMoney(amount)+' · bonus '+window.fidMoney(bonus)+' · accredito '+window.fidMoney(total)):'Inserisci l’importo della ricarica.';
+};
+async function fidPurchaseTransaction(code,amount,useWallet){
+  const cr=doc(db,'fidelityCustomers',code);
+  await runTransaction(db,async tx=>{
+    const cs=await tx.get(cr);if(!cs.exists())throw new Error('Cliente non trovato');
+    const data=cs.data()||{},oldPoints=Number(data.points||0),wallet=Number(data.walletBalance||0),pts=Math.floor(amount);
+    if(useWallet&&wallet+0.0001<amount)throw new Error('Credito portafoglio insufficiente');
+    let inviterSnap=null,inviterRef=null,referralBonus=false;
+    const inviterCode=String(data.referredBy||'').trim().toUpperCase();
+    if(inviterCode&&!data.referralRewarded&&inviterCode!==code){
+      inviterRef=doc(db,'fidelityCustomers',inviterCode);
+      inviterSnap=await tx.get(inviterRef);
+      referralBonus=inviterSnap.exists();
+    }
+    const patch={points:oldPoints+pts,lastPurchaseAt:serverTimestamp(),updatedAt:serverTimestamp()};
+    if(useWallet)patch.walletBalance=Math.max(0,wallet-amount);
+    if(referralBonus){patch.referralRewarded=true;patch.referralRewardedAt=serverTimestamp()}
+    tx.update(cr,patch);
+    const tr=doc(collection(db,'fidelityTransactions'));
+    tx.set(tr,{customerCode:code,amount,points:pts,type:useWallet?'wallet_purchase':'receipt',walletDebit:useWallet?amount:0,createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null});
+    if(referralBonus){
+      const inv=inviterSnap.data()||{},invPts=Number(inv.points||0);
+      tx.update(inviterRef,{points:invPts+5,updatedAt:serverTimestamp()});
+      const rt=doc(collection(db,'fidelityTransactions'));
+      tx.set(rt,{customerCode:inviterCode,points:5,type:'referral_first_purchase',referredCustomerCode:code,createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null});
+    }
+  });
+}
+window.creditFidelity=async()=>{
+  if(!fidelitySelected)return;
+  const amount=Number(document.getElementById('fidAmount')?.value);if(!(amount>0))return alert('Inserisci l’importo dello scontrino.');
+  try{await fidPurchaseTransaction(fidelitySelected.code,amount,false);alert('Acquisto registrato. Accreditati '+Math.floor(amount)+' punti.');await window.loadFidelityCustomers();await window.openFidelityCustomer(fidelitySelected.code)}catch(e){alert('Operazione non riuscita: '+e.message)}
+};
+window.payFidelityWallet=async()=>{
+  if(!fidelitySelected)return;
+  const amount=Number(document.getElementById('fidAmount')?.value);if(!(amount>0))return alert('Inserisci l’importo dello scontrino.');
+  if(Number(fidelitySelected.walletBalance||0)+0.0001<amount)return alert('Credito portafoglio insufficiente.');
+  if(!confirm('Scalare '+window.fidMoney(amount)+' dal portafoglio e accreditare '+Math.floor(amount)+' punti?'))return;
+  try{await fidPurchaseTransaction(fidelitySelected.code,amount,true);alert('Pagamento registrato e punti accreditati.');await window.loadFidelityCustomers();await window.openFidelityCustomer(fidelitySelected.code)}catch(e){alert('Operazione non riuscita: '+e.message)}
+};
+window.topupFidelityWallet=async()=>{
+  if(!fidelitySelected)return;
+  const amount=Number(document.getElementById('fidTopup')?.value);if(!(amount>0))return alert('Inserisci l’importo della ricarica.');
+  const bonus=amount>=80?Math.round(amount*10)/100:0,total=amount+bonus,code=fidelitySelected.code;
+  if(!confirm('Confermi ricarica '+window.fidMoney(amount)+(bonus?' + bonus '+window.fidMoney(bonus):'')+'?'))return;
+  try{
+    await runTransaction(db,async tx=>{
+      const cr=doc(db,'fidelityCustomers',code),cs=await tx.get(cr);if(!cs.exists())throw new Error('Cliente non trovato');
+      const old=Number(cs.data().walletBalance||0);
+      tx.update(cr,{walletBalance:old+total,walletActive:true,walletUpdatedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+      const tr=doc(collection(db,'fidelityTransactions'));
+      tx.set(tr,{customerCode:code,amount,bonus,walletCredit:total,points:0,type:'wallet_topup',createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null});
+    });
+    alert('Ricarica completata: '+window.fidMoney(total)+' accreditati.');
+    await window.loadFidelityCustomers();await window.openFidelityCustomer(code);
+  }catch(e){alert('Ricarica non riuscita: '+e.message)}
+};
+window.redeemFidelityReward=async()=>{
+  if(!fidelitySelected)return;
+  const code=fidelitySelected.code;if(Number(fidelitySelected.points||0)<300)return alert('Punti insufficienti.');
+  if(!confirm('Usare 300 punti per un buono da 10 €?'))return;
+  try{
+    await runTransaction(db,async tx=>{
+      const cr=doc(db,'fidelityCustomers',code),cs=await tx.get(cr);if(!cs.exists())throw new Error('Cliente non trovato');
+      const old=Number(cs.data().points||0);if(old<300)throw new Error('Punti insufficienti');
+      tx.update(cr,{points:old-300,updatedAt:serverTimestamp(),lastRewardAt:serverTimestamp()});
+      const tr=doc(collection(db,'fidelityTransactions'));
+      tx.set(tr,{customerCode:code,points:-300,rewardValue:10,type:'reward_10_euro',createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null});
+    });
+    alert('Buono da 10 € utilizzato.');
+    await window.loadFidelityCustomers();await window.openFidelityCustomer(code);
+  }catch(e){alert('Premio non utilizzato: '+e.message)}
+};
 window.adjustFidelity=async()=>{if(!fidelitySelected)return;const raw=prompt('Correzione punti. Usa un numero positivo o negativo (es. 10 oppure -10).');if(raw===null)return;const pts=parseInt(raw,10);if(!Number.isFinite(pts)||pts===0)return alert('Valore non valido.');const reason=prompt('Motivo della correzione:');if(!reason)return;const code=fidelitySelected.code;try{await runTransaction(db,async tx=>{const cr=doc(db,'fidelityCustomers',code),cs=await tx.get(cr);const old=Number(cs.data()?.points||0),next=Math.max(0,old+pts);tx.update(cr,{points:next,updatedAt:serverTimestamp()});const tr=doc(collection(db,'fidelityTransactions'));tx.set(tr,{customerCode:code,points:next-old,type:'manual_adjustment',reason,createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null})});window.loadFidelityCustomers();window.openFidelityCustomer(code)}catch(e){alert('Correzione non riuscita: '+e.message)}};
-window.loadFidelityHistory=async code=>{const el=document.getElementById('fidHistory');if(!el)return;try{const s=await getDocs(query(collection(db,'fidelityTransactions'),orderBy('createdAt','desc'),limit(100)));const a=[];s.forEach(x=>{const d=x.data();if(d.customerCode===code)a.push(d)});el.innerHTML='<b>MOVIMENTI PUNTI</b>'+((a.length)?a.slice(0,15).map(x=>'<p style="border-top:1px solid #eee;padding-top:8px">'+(Number(x.points||0)>=0?'+':'')+Number(x.points||0)+' pt · '+fidEsc(x.type==='receipt'?'Scontrino':x.reason||x.type)+'</p>').join(''):'<p>Nessun movimento.</p>')}catch(e){el.innerHTML='<p>Storico non disponibile.</p>'}};
+window.loadFidelityHistory=async code=>{const el=document.getElementById('fidHistory');if(!el)return;try{const s=await getDocs(query(collection(db,'fidelityTransactions'),orderBy('createdAt','desc'),limit(150))),a=[];s.forEach(x=>{const d=x.data();if(d.customerCode===code)a.push(d)});const label=x=>x.type==='receipt'?'Acquisto in cassa':x.type==='wallet_purchase'?'Pagamento portafoglio':x.type==='wallet_topup'?'Ricarica portafoglio':x.type==='reward_10_euro'?'Buono 10 €':x.type==='referral_first_purchase'?'Porta un amico':x.reason||x.type;el.innerHTML='<b>MOVIMENTI</b>'+((a.length)?a.slice(0,20).map(x=>'<p style="border-top:1px solid #eee;padding-top:8px"><b>'+fidEsc(label(x))+'</b>'+(Number(x.points||0)?' · '+(Number(x.points||0)>0?'+':'')+Number(x.points||0)+' pt':'')+(Number(x.walletCredit||0)?' · +'+window.fidMoney(x.walletCredit):'')+(Number(x.walletDebit||0)?' · -'+window.fidMoney(x.walletDebit):'')+'</p>').join(''):'<p>Nessun movimento.</p>')}catch(e){el.innerHTML='<p>Storico non disponibile.</p>'}};
 let fidelityCameraStream=null;
 window.openFidelityCamera=async()=>{const card=document.getElementById('fidelityCameraCard'),video=document.getElementById('fidelityVideo'),status=document.getElementById('fidelityCameraStatus');card.style.display='block';status.textContent='Apertura fotocamera…';card.scrollIntoView({behavior:'smooth',block:'start'});try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('unsupported');if(fidelityCameraStream)fidelityCameraStream.getTracks().forEach(t=>t.stop());fidelityCameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});video.srcObject=fidelityCameraStream;await video.play();status.textContent='Fotocamera attiva. Inquadra il QR Fidelity del cliente.';window.startFidelityQrDetection&&window.startFidelityQrDetection();}catch(e){status.textContent='Fotocamera non disponibile. Controlla il permesso fotocamera del browser.';}};
 window.startFidelityQrDetection=async()=>{const video=document.getElementById('fidelityVideo'),status=document.getElementById('fidelityCameraStatus');if(!('BarcodeDetector' in window)){status.textContent='Fotocamera attiva. Su questo browser la lettura automatica QR non è disponibile: usa la ricerca cliente.';return}let detector;try{detector=new BarcodeDetector({formats:['qr_code']})}catch(e){return}clearInterval(fidelityScanTimer);fidelityScanTimer=setInterval(async()=>{if(!video||video.readyState<2)return;try{const codes=await detector.detect(video);if(codes.length){let raw=String(codes[0].rawValue||'').trim();raw=raw.replace(/^ALBERTO-FIDELITY:/i,'').trim().toUpperCase();if(raw){clearInterval(fidelityScanTimer);status.textContent='QR letto: '+raw;window.openFidelityCustomer(raw)}}}catch(e){}},450)};
