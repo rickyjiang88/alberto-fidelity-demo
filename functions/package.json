@@ -1,0 +1,14 @@
+{
+  "name": "alberto-wallet-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.3.2",
+    "jsonwebtoken": "^9.0.2",
+    "passkit-generator": "^3.4.0"
+  }
+}
