@@ -93,7 +93,8 @@ service cloud.firestore {
       allow create:
         if request.auth != null
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.points == 0;
+        && request.resource.data.get("points", 0) == 0
+        && request.resource.data.get("walletBalance", 0) == 0;
 
       allow read:
         if request.auth != null
@@ -102,13 +103,36 @@ service cloud.firestore {
           || request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43"
         );
 
+      // Il cliente può cambiare solo i dati del proprio profilo e le preferenze.
+      // Punti, saldo portafoglio, premi e bonus referral possono essere modificati
+      // soltanto dal pannello amministratore.
       allow update:
         if request.auth != null
         && (
           (
             resource.data.uid == request.auth.uid
             && request.resource.data.uid == request.auth.uid
-            && request.resource.data.points == resource.data.points
+            && request.resource.data.get("points", 0) == resource.data.get("points", 0)
+            && request.resource.data.get("walletBalance", 0) == resource.data.get("walletBalance", 0)
+            && request.resource.data.get("referralRewarded", false) == resource.data.get("referralRewarded", false)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "name",
+              "surname",
+              "phone",
+              "birthDate",
+              "walletActive",
+              "officeGroupName",
+              "officeGroupCode",
+              "groupCode",
+              "officeGroupCodes",
+              "officeGroupOwnerCode",
+              "officeGroupOwnerName",
+              "groupName",
+              "groupOwnerName",
+              "referredBy",
+              "referralStatus",
+              "updatedAt"
+            ])
           )
           || request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43"
         );
