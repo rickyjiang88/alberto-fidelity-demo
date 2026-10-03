@@ -95,21 +95,22 @@ window.setBookingStatus=async(id,status)=>{
  if(!["IN ATTESA","CONFERMATA","ARRIVATO","ANNULLATA"].includes(status))return;
  const b=allBookings.find(x=>x.id===id);if(!b||!auth.currentUser||auth.currentUser.uid!==ADMIN_UID)return;
  if(status==="ANNULLATA"&&!confirm("Annullare la prenotazione di "+b.name+"?"))return;
- if(status==="ARRIVATO"&&!confirm("Confermi che la prenotazione di "+b.name+" è arrivata? Verrà assegnato 1 punto ai clienti registrati presenti."))return;
+ if(status==="ARRIVATO"){const award=(b.bookingType==="group"&&Number(b.covers||b.guests||0)>=6)?2:1;if(!confirm("Confermi che la prenotazione di "+b.name+" è arrivata? Verranno assegnati "+award+" punto"+(award===1?"":"i")+" ai clienti registrati presenti."))return;}
  const cards=document.querySelectorAll("#bookingList button");cards.forEach(btn=>btn.disabled=true);
  try{
    if(status==="ARRIVATO"){
      await runTransaction(db,async tx=>{
        const bookingRef=doc(db,"orders",id),snap=await tx.get(bookingRef);if(!snap.exists())throw new Error("Prenotazione non trovata");
        const current=snap.data();if(current.arrivalPointsAwarded){tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp()});return}
+       const awardPoints=(current.bookingType==="group"&&Number(current.covers||current.guests||0)>=6)?2:1;
        const codes=new Set();
        if(current.bookingType!=="group"&&current.customerCode)codes.add(String(current.customerCode));
        if(Array.isArray(current.groupMembers))current.groupMembers.forEach(m=>{if(m&&m.code)codes.add(String(m.code))});
        if(current.bookingType==="group"&&codes.size===0&&current.customerCode)codes.add(String(current.customerCode));
        const refs=[...codes].map(code=>({code,ref:doc(db,"fidelityCustomers",code)}));
        const snaps=await Promise.all(refs.map(x=>tx.get(x.ref)));
-       refs.forEach((x,i)=>{const customerSnap=snaps[i];if(customerSnap.exists()){const old=Number(customerSnap.data().points||0);tx.update(x.ref,{points:old+1,updatedAt:serverTimestamp(),lastVisitAt:serverTimestamp()});const tr=doc(collection(db,"fidelityTransactions"));tx.set(tr,{customerCode:x.code,points:1,type:"booking_arrival",bookingId:id,createdAt:serverTimestamp(),createdBy:auth.currentUser.uid})}});
-       tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp(),arrivalPointsAwarded:true});
+       refs.forEach((x,i)=>{const customerSnap=snaps[i];if(customerSnap.exists()){const old=Number(customerSnap.data().points||0);tx.update(x.ref,{points:old+awardPoints,updatedAt:serverTimestamp(),lastVisitAt:serverTimestamp()});const tr=doc(collection(db,"fidelityTransactions"));tx.set(tr,{customerCode:x.code,points:awardPoints,type:"booking_arrival",bookingId:id,createdAt:serverTimestamp(),createdBy:auth.currentUser.uid})}});
+       tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp(),arrivalPointsAwarded:true,arrivalPointsValue:awardPoints});
      });
    }else{
      const patch={bookingStatus:status,bookingUpdatedAt:serverTimestamp()};if(status==="CONFERMATA")patch.bookingConfirmedAt=serverTimestamp();await updateDoc(doc(db,"orders",id),patch);
