@@ -93,7 +93,7 @@ async function fidPurchaseTransaction(code,amount,useWallet){
     }
     const patch={points:oldPoints+pts,lastPurchaseAt:serverTimestamp(),updatedAt:serverTimestamp()};
     if(useWallet)patch.walletBalance=Math.max(0,wallet-amount);
-    if(referralBonus){patch.referralRewarded=true;patch.referralRewardedAt=serverTimestamp()}
+    if(referralBonus){patch.referralRewarded=true;patch.referralRewardedAt=serverTimestamp();patch.referralStatus='rewarded'}
     tx.update(cr,patch);
     const tr=doc(collection(db,'fidelityTransactions'));
     tx.set(tr,{customerCode:code,amount,points:pts,type:useWallet?'wallet_purchase':'receipt',walletDebit:useWallet?amount:0,createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null});
@@ -209,7 +209,7 @@ window.renderBookings=()=>{
    '<button '+(status==="CONFERMATA"?'disabled':'class="primary"')+' onclick="window.setBookingStatus(\''+id+'\',\'CONFERMATA\')">CONFERMATA</button>'+
    '<button '+(status==="CONFERMATA"?'class="primary"':'disabled')+' onclick="window.setBookingStatus(\''+id+'\',\'ARRIVATO\')">ARRIVATO</button>'+
    '<button onclick="window.setBookingStatus(\''+id+'\',\'ANNULLATA\')">ANNULLA</button>';
-  return '<article class="card booking-card"><div class="booking-card-head"><h3>'+bookingSafe(b.time||"")+' · '+bookingSafe(b.name||"")+'</h3><span class="booking-label '+badgeClass+'">'+bookingSafe(status)+'</span></div><p><b>Coperti:</b> '+(unknown?"OLTRE 10 · NUMERO DA PRECISARE":number)+'</p><p><b>Telefono:</b> <a href="tel:'+bookingSafe(phone)+'">'+bookingSafe(b.phone||"")+'</a></p><small class="status-note">'+(status==="IN ATTESA"?"Il cliente ha inviato la richiesta. Premi CONFERMATA per inviargli l’ok.":status==="CONFERMATA"?"Prenotazione confermata. Quando si presenta, premi ARRIVATO.":status==="ARRIVATO"?"Arrivo registrato e punto prenotazione assegnato ai clienti registrati presenti.":"Prenotazione annullata.")+'</small>'+
+  return '<article class="card booking-card"><div class="booking-card-head"><h3>'+bookingSafe(b.time||"")+' · '+bookingSafe(b.name||"")+'</h3><span class="booking-label '+badgeClass+'">'+bookingSafe(status)+'</span></div><p><b>Coperti:</b> '+(unknown?"OLTRE 10 · NUMERO DA PRECISARE":number)+'</p><p><b>Telefono:</b> <a href="tel:'+bookingSafe(phone)+'">'+bookingSafe(b.phone||"")+'</a></p><small class="status-note">'+(status==="IN ATTESA"?"Il cliente ha inviato la richiesta. Premi CONFERMATA per inviargli l’ok.":status==="CONFERMATA"?"Prenotazione confermata. Quando si presenta, premi ARRIVATO.":status==="ARRIVATO"?"Arrivo registrato e punti prenotazione assegnati ai clienti registrati presenti.":"Prenotazione annullata.")+'</small>'+
    (unknown?'<div class="covers-entry"><label for="covers-'+id+'">COPERTI EFFETTIVI</label><input type="number" id="covers-'+id+'" min="11" max="200" placeholder="N°"><button onclick="window.saveBookingCovers(\''+id+'\')">SALVA COPERTI</button></div>':"")+
    '<div class="booking-actions">'+statusActions+'</div></article>';
  }).join(""):'<div class="card"><p>Nessuna richiesta di prenotazione per la data selezionata.</p></div>';
