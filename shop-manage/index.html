@@ -241,39 +241,87 @@ window.renderBookings=()=>{
   const badgeClass=status==="IN ATTESA"?"booking-waiting":status==="ANNULLATA"?"booking-cancelled":"booking-confirmed";
   const phone=String(b.phone||"").replace(/[^0-9+]/g,""),statusActions=status==="ANNULLATA"?'<button onclick="window.setBookingStatus(\''+id+'\',\'IN ATTESA\')">RIPRISTINA</button>':status==="ARRIVATO"?'<button disabled class="primary">ARRIVATO ✓</button>':
    '<button '+(status==="CONFERMATA"?'disabled':'class="primary"')+' onclick="window.setBookingStatus(\''+id+'\',\'CONFERMATA\')">CONFERMATA</button>'+
-   '<button '+(status==="CONFERMATA"?'class="primary"':'disabled')+' onclick="window.setBookingStatus(\''+id+'\',\'ARRIVATO\')">ARRIVATO</button>'+
+   '<button '+(status==="CONFERMATA"?'class="primary" style="background:#b5101b;color:white;font-weight:900"':'disabled')+' onclick="window.setBookingStatus(\''+id+'\',\'ARRIVATO\')">SEGNA ARRIVATO + PUNTI</button>'+
    '<button onclick="window.setBookingStatus(\''+id+'\',\'ANNULLATA\')">ANNULLA</button>';
-  return '<article class="card booking-card"><div class="booking-card-head"><h3>'+bookingSafe(b.time||"")+' · '+bookingSafe(b.name||"")+'</h3><span class="booking-label '+badgeClass+'">'+bookingSafe(status)+'</span></div><p><b>Coperti:</b> '+(unknown?"OLTRE 10 · NUMERO DA PRECISARE":number)+'</p><p><b>Telefono:</b> <a href="tel:'+bookingSafe(phone)+'">'+bookingSafe(b.phone||"")+'</a></p><small class="status-note">'+(status==="IN ATTESA"?"Il cliente ha inviato la richiesta. Premi CONFERMATA per inviargli l’ok.":status==="CONFERMATA"?"Prenotazione confermata. Quando si presenta, premi ARRIVATO.":status==="ARRIVATO"?"Arrivo registrato e punti prenotazione assegnati ai clienti registrati presenti.":"Prenotazione annullata.")+'</small>'+
+  // Solo i clienti selezionati come presenti ricevono il bonus Fidelity.
+  const attendees=[],seenCodes=new Set();
+  const addAttendee=(code,name,checked)=>{
+    code=String(code||"").trim().toUpperCase();
+    if(!code||seenCodes.has(code))return;
+    seenCodes.add(code);attendees.push({code,name:String(name||"Cliente Fidelity"),checked});
+  };
+  if(b.bookingType==="group"){
+    if(Array.isArray(b.groupMembers))b.groupMembers.forEach(m=>{if(m)addAttendee(m.code,m.name||m.email,true)});
+    // Il prenotante puo' essere diverso dai partecipanti selezionati.
+    if(b.customerCode)addAttendee(b.customerCode,(b.name||"Prenotante")+" (prenotante: seleziona se presente)",false);
+  }else if(b.customerCode)addAttendee(b.customerCode,b.name||"Prenotante",true);
+  const attendanceHtml=status==="CONFERMATA"&&attendees.length?
+    '<div class="booking-attendees" style="margin:14px 0;padding:12px;border:1px solid #e4d4d4;border-radius:10px">'+
+    '<b style="display:block;margin-bottom:8px">CLIENTI PRESENTI · PUNTI FIDELITY</b>'+
+    attendees.map(m=>'<label style="display:flex;align-items:center;gap:9px;margin:8px 0;min-height:32px"><input type="checkbox" data-booking-attendee data-booking-id="'+id+'" data-booking-code="'+bookingSafe(m.code)+'" '+(m.checked?'checked':'')+' style="width:19px;height:19px"><span>'+bookingSafe(m.name)+'</span></label>').join("")+
+    '<small>Controlla i presenti prima di premere SEGNA ARRIVATO. Ogni cliente selezionato riceve il bonus una sola volta.</small></div>':"";
+  return '<article class="card booking-card"><div class="booking-card-head"><h3>'+bookingSafe(b.time||"")+' · '+bookingSafe(b.name||"")+'</h3><span class="booking-label '+badgeClass+'">'+bookingSafe(status)+'</span></div><p><b>Coperti:</b> '+(unknown?"OLTRE 10 · NUMERO DA PRECISARE":number)+'</p><p><b>Telefono:</b> <a href="tel:'+bookingSafe(phone)+'">'+bookingSafe(b.phone||"")+'</a></p><small class="status-note">'+(status==="IN ATTESA"?"Il cliente ha inviato la richiesta. Premi CONFERMATA per inviargli l’ok.":status==="CONFERMATA"?"Prenotazione confermata. Quando si presenta, premi ARRIVATO.":status==="ARRIVATO"?(b.arrivalPointsAwarded?"Arrivo registrato. Bonus Fidelity accreditato ai clienti presenti.":"Arrivo registrato. Nessun punto Fidelity accreditato."):"Prenotazione annullata.")+'</small>'+
    (unknown?'<div class="covers-entry"><label for="covers-'+id+'">COPERTI EFFETTIVI</label><input type="number" id="covers-'+id+'" min="11" max="200" placeholder="N°"><button onclick="window.saveBookingCovers(\''+id+'\')">SALVA COPERTI</button></div>':"")+
-   '<div class="booking-actions">'+statusActions+'</div></article>';
+   attendanceHtml+'<div class="booking-actions">'+statusActions+'</div></article>';
  }).join(""):'<div class="card"><p>Nessuna richiesta di prenotazione per la data selezionata.</p></div>';
 };
 window.setBookingStatus=async(id,status)=>{
  if(!["IN ATTESA","CONFERMATA","ARRIVATO","ANNULLATA"].includes(status))return;
  const b=allBookings.find(x=>x.id===id);if(!b||!auth.currentUser||auth.currentUser.uid!==ADMIN_UID)return;
  if(status==="ANNULLATA"&&!confirm("Annullare la prenotazione di "+b.name+"?"))return;
- if(status==="ARRIVATO"){const award=(b.bookingType==="group"&&Number(b.covers||b.guests||0)>=6)?2:1;if(!confirm("Confermi che la prenotazione di "+b.name+" è arrivata? Verranno assegnati "+award+" punto"+(award===1?"":"i")+" ai clienti registrati presenti."))return;}
+ const selectedCodes=status==="ARRIVATO"?
+   [...document.querySelectorAll("input[data-booking-attendee]:checked")]
+    .filter(el=>el.dataset.bookingId===id)
+    .map(el=>String(el.dataset.bookingCode||"").trim().toUpperCase()).filter(Boolean):[];
+ if(status==="ARRIVATO"){
+   if(b.bookingStatus!=="CONFERMATA")return alert("Prima conferma la prenotazione.");
+   const award=(b.bookingType==="group"&&Number(b.covers||b.guests||0)>=6)?2:1;
+   const msg=selectedCodes.length?
+     "Confermi l'arrivo di "+b.name+"? Assegnerai "+award+" punto"+(award===1?"":"i")+" a ciascuno dei "+selectedCodes.length+" clienti Fidelity selezionati.":
+     "Confermi l'arrivo di "+b.name+" SENZA accreditare punti Fidelity?";
+   if(!confirm(msg))return;
+ }
  const cards=document.querySelectorAll("#bookingList button");cards.forEach(btn=>btn.disabled=true);
  try{
    if(status==="ARRIVATO"){
      await runTransaction(db,async tx=>{
-       const bookingRef=doc(db,"orders",id),snap=await tx.get(bookingRef);if(!snap.exists())throw new Error("Prenotazione non trovata");
-       const current=snap.data();if(current.arrivalPointsAwarded){tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp()});return}
+       const bookingRef=doc(db,"orders",id),snap=await tx.get(bookingRef);
+       if(!snap.exists())throw new Error("Prenotazione non trovata");
+       const current=snap.data();
+       if(current.arrivalPointsAwarded||current.bookingStatus==="ARRIVATO"){
+         tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp()});return;
+       }
+       if(current.bookingStatus!=="CONFERMATA")throw new Error("La prenotazione non e' ancora confermata");
        const awardPoints=(current.bookingType==="group"&&Number(current.covers||current.guests||0)>=6)?2:1;
-       const codes=new Set();
-       if(current.bookingType!=="group"&&current.customerCode)codes.add(String(current.customerCode));
-       if(Array.isArray(current.groupMembers))current.groupMembers.forEach(m=>{if(m&&m.code)codes.add(String(m.code))});
-       if(current.bookingType==="group"&&codes.size===0&&current.customerCode)codes.add(String(current.customerCode));
-       const refs=[...codes].map(code=>({code,ref:doc(db,"fidelityCustomers",code)}));
+       // Non usare groupMemberCodes: comprende anche colleghi NON prenotati.
+       const allowed=new Set();
+       if(current.customerCode)allowed.add(String(current.customerCode).trim().toUpperCase());
+       if(Array.isArray(current.groupMembers))current.groupMembers.forEach(m=>{if(m&&m.code)allowed.add(String(m.code).trim().toUpperCase())});
+       const codes=[...new Set(selectedCodes)];
+       if(codes.some(c=>!allowed.has(c)))throw new Error("Un partecipante non appartiene alla prenotazione");
+       const refs=codes.map(code=>({code,ref:doc(db,"fidelityCustomers",code)}));
        const snaps=await Promise.all(refs.map(x=>tx.get(x.ref)));
-       refs.forEach((x,i)=>{const customerSnap=snaps[i];if(customerSnap.exists()){const old=Number(customerSnap.data().points||0);tx.update(x.ref,{points:old+awardPoints,updatedAt:serverTimestamp(),lastVisitAt:serverTimestamp()});const tr=doc(collection(db,"fidelityTransactions"));tx.set(tr,{customerCode:x.code,points:awardPoints,type:"booking_arrival",bookingId:id,createdAt:serverTimestamp(),createdBy:auth.currentUser.uid})}});
-       tx.update(bookingRef,{bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp(),arrivalPointsAwarded:true,arrivalPointsValue:awardPoints});
+       const missing=refs.filter((x,i)=>!snaps[i].exists());
+       if(missing.length)throw new Error("Profilo Fidelity non trovato: "+missing.map(x=>x.code).join(", "));
+       refs.forEach((x,i)=>{
+         const old=Number(snaps[i].data().points||0);
+         tx.update(x.ref,{points:old+awardPoints,updatedAt:serverTimestamp(),lastVisitAt:serverTimestamp()});
+         const tr=doc(collection(db,"fidelityTransactions"));
+         tx.set(tr,{customerCode:x.code,points:awardPoints,type:"booking_arrival",bookingId:id,createdAt:serverTimestamp(),createdBy:auth.currentUser.uid});
+       });
+       tx.update(bookingRef,{
+         bookingStatus:"ARRIVATO",bookingUpdatedAt:serverTimestamp(),arrivedAt:serverTimestamp(),
+         arrivalPointsAwarded:codes.length>0,arrivalPointsValue:awardPoints,
+         arrivalPointsCustomerCodes:codes,arrivalPointsCount:codes.length
+       });
      });
    }else{
-     const patch={bookingStatus:status,bookingUpdatedAt:serverTimestamp()};if(status==="CONFERMATA")patch.bookingConfirmedAt=serverTimestamp();await updateDoc(doc(db,"orders",id),patch);
+     const patch={bookingStatus:status,bookingUpdatedAt:serverTimestamp()};
+     if(status==="CONFERMATA")patch.bookingConfirmedAt=serverTimestamp();
+     await updateDoc(doc(db,"orders",id),patch);
    }
- }
- catch(e){console.error(e);alert("Non è stato possibile aggiornare la prenotazione.");window.renderBookings();}
+ }catch(e){console.error(e);alert("Non è stato possibile aggiornare la prenotazione. "+String(e?.message||"Riprova."));window.renderBookings();}
+ finally{cards.forEach(btn=>btn.disabled=false);}
 };
 window.saveBookingCovers=async id=>{
  const b=allBookings.find(x=>x.id===id),el=document.getElementById("covers-"+id);if(!b||!el)return;
