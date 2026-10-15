@@ -155,8 +155,9 @@
       <span class="eyebrow">FIDELITY</span><h1>Punti & premi</h1><p class="lead">Saldo e avanzamento del tuo profilo Alberto.</p>
       <div class="grid2">
         <div class="card dark"><small>SALDO DISPONIBILE</small><div id="pointsTotal" class="metric">0</div><div class="metric-sub">punti Alberto</div></div>
-        <div class="card soft"><small>PROSSIMO PREMIO</small><div style="font-size:22px;font-weight:900;margin:10px 0">500 punti</div><div class="progress"><i id="pointsBar" style="width:0%"></i></div><div id="pointsToReward" class="metric-sub">—</div></div>
+        <div class="card soft"><small>PROSSIMO PREMIO</small><div style="font-size:22px;font-weight:900;margin:10px 0">300 punti</div><div class="progress"><i id="pointsBar" style="width:0%"></i></div><div id="pointsToReward" class="metric-sub">—</div></div>
       </div>
+      <div class="card" style="margin-top:18px"><h2>Movimenti punti</h2><div id="desktopPointsHistory" class="list">Caricamento movimenti…</div></div>
     </section>
 
     <section id="view-orders" class="view">
@@ -197,7 +198,7 @@
 <script src="../assets/qrcode.min.js"></script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import {getFirestore,doc,getDoc,setDoc,serverTimestamp,collection,query,where,onSnapshot} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {getFirestore,doc,getDoc,setDoc,serverTimestamp,collection,query,where,onSnapshot,getDocs,limit} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {getAuth,signInWithEmailAndPassword,sendPasswordResetEmail,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const fb=initializeApp({apiKey:"AIzaSyDSZzzgpqudJFgri4INDm1XQNs4ilR8-SU",authDomain:"alberto-tabacchi.firebaseapp.com",projectId:"alberto-tabacchi",storageBucket:"alberto-tabacchi.firebasestorage.app",messagingSenderId:"619128191346",appId:"1:619128191346:web:192da35141c3f5e30f85eb"});
@@ -251,7 +252,7 @@ function render(){
   $('profileAvatar').textContent=initials();$('profileName').textContent=full;$('profileEmail').textContent=email;
   $('detailName').textContent=full;$('detailEmail').textContent=email;$('detailPhone').textContent=profile.phone||'—';$('detailBirth').textContent=profile.birthDate?fmtDate(profile.birthDate):'—';
   $('customerCode').textContent=customerCode();$('dashPoints').textContent=pts;$('pointsTotal').textContent=pts;
-  $('pointsBar').style.width=Math.min(100,(pts/500)*100)+'%';$('pointsToReward').textContent=pts>=500?'Premio disponibile':'Mancano '+Math.max(0,500-pts)+' punti';
+  $('pointsBar').style.width=Math.min(100,(pts/300)*100)+'%';$('pointsToReward').textContent=pts>=300?'Premio disponibile':'Mancano '+Math.max(0,300-pts)+' punti';
   $('dashOrders').textContent=orders.length;$('dashBookings').textContent=bookings.length;
   const gname=profile.officeGroupName||profile.groupName||'',gcode=profile.officeGroupCode||profile.groupCode||'';
   $('dashGroup').textContent=gname||'Non attivo';
@@ -272,6 +273,18 @@ function render(){
 function makeQR(){
   const el=$('qr'); if(!el||!window.QRCode||!customerCode())return; el.innerHTML='';
   new QRCode(el,{text:customerCode(),width:190,height:190,colorDark:'#191512',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});
+}
+
+
+function fidelityMovementLabel(x){const p=Number(x.points||0),t=String(x.type||'');if(t==='booking_arrival')return p===2?'Prenotazione tavolo da 6 o più coperti':'Prenotazione tavolo';if(t==='referral_first_purchase')return 'Porta un amico – bonus invito';if(t==='receipt')return 'Acquisto in cassa';if(t==='wallet_purchase')return 'Acquisto con portafoglio';if(t==='wallet_topup')return 'Ricarica portafoglio';if(t==='reward_10_euro')return 'Buono premio da 10 €';if(t==='manual_adjustment')return 'Correzione manuale'+(x.reason?' – '+String(x.reason):'');return x.reason||'Movimento punti';}
+
+async function loadDesktopPointsHistory(){
+ const el=$('desktopPointsHistory');if(!el||!auth.currentUser)return;
+ try{
+ const s=await getDocs(query(collection(db,'fidelityTransactions'),where('customerCode','==',customerCode()),limit(200)));
+ const a=s.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+ el.innerHTML=a.length?a.map(x=>{const p=Number(x.points||0),dt=x.createdAt?.toDate?.(),date=dt?dt.toLocaleString('it-IT'):'Data non disponibile';const amount=Number(x.amount||0)>0?' · '+Number(x.amount).toLocaleString('it-IT',{style:'currency',currency:'EUR'}):'';return '<div class="row"><div><b>'+esc(fidelityMovementLabel(x))+'</b><small>'+esc(date+amount)+'</small></div><strong>'+(p>0?'+':'')+p+' pt</strong></div>'}).join(''):'<div class="empty">Nessun movimento registrato.</div>';
+ }catch(e){console.warn(e);el.textContent='Movimenti non disponibili. Riprova più tardi.'}
 }
 
 function watchUser(uid){
@@ -298,7 +311,7 @@ onAuthStateChanged(auth,async user=>{
   const code='ALB'+user.uid.slice(0,10).toUpperCase();
   profile={uid:user.uid,code,email:user.email||'',name:(user.displayName||'Cliente').split(' ')[0]||'Cliente',surname:(user.displayName||'').split(' ').slice(1).join(' ')};
   try{const s=await getDoc(doc(db,'fidelityCustomers',code));if(s.exists())profile={...profile,...s.data(),uid:user.uid,code}}catch(e){console.warn(e)}
-  render();watchUser(user.uid);
+  render();watchUser(user.uid);loadDesktopPointsHistory();
 });
 
 $('loginBtn').addEventListener('click',async()=>{
