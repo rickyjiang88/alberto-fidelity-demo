@@ -139,8 +139,17 @@ service cloud.firestore {
     }
 
     match /fidelityTransactions/{transactionId} {
-      allow read, create:
-        if request.auth != null
+      // Il cliente legge esclusivamente le transazioni del proprio codice Fidelity.
+      // Le scritture rimangono riservate all'amministratore.
+      allow read: if request.auth != null && (
+        request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43"
+        || (
+          resource.data.customerCode is string
+          && exists(/databases/$(database)/documents/fidelityCustomers/$(resource.data.customerCode))
+          && get(/databases/$(database)/documents/fidelityCustomers/$(resource.data.customerCode)).data.uid == request.auth.uid
+        )
+      );
+      allow create: if request.auth != null
         && request.auth.uid == "vaQyMYFpkrNU0rsc6aGSnNTHmt43";
 
       allow update, delete: if false;
