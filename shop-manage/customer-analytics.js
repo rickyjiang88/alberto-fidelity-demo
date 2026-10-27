@@ -145,10 +145,10 @@ function renderAnalytics() {
   const totalSpent = included.reduce((sum,p)=>sum+p.amount,0);
   const buyers = [...stats.values()].filter(s=>s.purchases.length);
   const repeats = buyers.filter(s=>s.purchases.length>=2).length;
-  const inactivity = [...stats.values()].filter(s=>{
+  const inactivityCounts = [15,30,60].map(days => [...stats.values()].filter(s=>{
     const last=latestOf(s.lastPurchase,s.lastVisit);
-    return last && now()-last > 30*86400000;
-  });
+    return last && now()-last > days*86400000;
+  }).length);
   const never = [...stats.values()].filter(s=>!s.lastPurchase && !s.lastVisit);
   const totalBy = {colazione:0,pranzo:0,aperitivo:0,altro:0};
   included.forEach(p=>totalBy[p.segment]++);
@@ -158,7 +158,9 @@ function renderAnalytics() {
     ["SPESA REGISTRATA",euro(totalSpent),"Solo acquisti Fidelity, non incasso totale del bar"],
     ["SCONTRINO MEDIO",included.length?euro(totalSpent/included.length):"—",included.length+" acquisti registrati"],
     ["CLIENTI RIPETUTI",repeats,"Almeno 2 acquisti nel periodo"],
-    ["INATTIVI OLTRE 30 GIORNI",inactivity.length,"In base all'ultima attività registrata"],
+    ["INATTIVI OLTRE 15 GIORNI",inactivityCounts[0],"Ultima attività Fidelity registrata"],
+    ["INATTIVI OLTRE 30 GIORNI",inactivityCounts[1],"Ultima attività Fidelity registrata"],
+    ["INATTIVI OLTRE 60 GIORNI",inactivityCounts[2],"Ultima attività Fidelity registrata"],
     ["SENZA ATTIVITÀ REGISTRATA",never.length,"Non equivale a cliente mai entrato"],
     ["PREORDINI ASSOCIATI",[...stats.values()].reduce((s,r)=>s+r.preorders,0),allOrders.ready?"Ordini online collegati a Fidelity":"Caricamento ordini…"]
   ];
