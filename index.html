@@ -48,6 +48,7 @@ body{position:static!important;touch-action:pan-y!important}
 <main id="account" class="screen"><button class="back" onclick="show('home')">‹ Home</button><section class="section account-head"><small>IL MIO ALBERTO</small><h1>Profilo</h1><div class="account-person"><div class="avatar">R</div><div><b id="profileName">Cliente Alberto</b><span id="profileEmail">Accedi per sincronizzare i tuoi dati</span></div></div></section>
 <section class="section"><div class="profile-points"><div class="profile-balance-grid"><div class="profile-balance"><small>PUNTI ALBERTO</small><strong data-fid-points>0</strong><span class="profile-unit">PUNTI DISPONIBILI</span></div><div class="profile-balance wallet-card" onclick="openProfileActivity('wallet')"><small>PORTAFOGLIO</small><strong data-wallet-balance>NON ATTIVO</strong><span class="profile-unit" id="profileWalletHint">Attivalo se vuoi usare il credito</span></div></div><button onclick="openQRSheet()">MOSTRA QR ALBERTO</button></div></section>
 
+<section class="section" id="managerAccessSection" style="display:none"><h2>Area gestore</h2><div class="profile-menu"><button type="button" onclick="location.href='./shop-manage/'"><span class="picon" aria-hidden="true">▥</span><div><b>Analisi clienti</b><small>Statistiche Fidelity, fasce orarie e clienti inattivi</small></div><em>›</em></button></div></section>
 <section class="section"><h2>La tua attività</h2><div class="profile-menu">
 <button onclick="openProfileActivity('wallet')"><span class="picon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z"/><path d="M16 11h4v4h-4a2 2 0 0 1 0-4Z"/><path d="M5 5h11"/></svg></span><div><b>Portafoglio Alberto</b><small id="walletProfileStatus">Facoltativo · non attivo</small></div><em>›</em></button>
 <button onclick="openProfileActivity('orders')"><span class="picon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6"/><path d="M9 12h6"/></svg></span><div><b>I miei ordini</b><small>In corso, consegnati e annullati</small></div><em>›</em></button>
@@ -292,6 +293,8 @@ const _authBootSafety=setTimeout(()=>{
  if(window.albertoAuth?.currentUser)show('home');else show('welcome');
 },1500);
 window.albertoAuthFns.onAuthStateChanged(window.albertoAuth,async user=>{
+ const managerAccess=document.getElementById('managerAccessSection');
+ if(managerAccess)managerAccess.style.display=user?.uid==='vaQyMYFpkrNU0rsc6aGSnNTHmt43'?'':'none';
  clearTimeout(_authBootSafety);
  const first=!_authBootDone;_authBootDone=true;
  const params=new URLSearchParams(location.search),ref=params.get('ref'),group=params.get('group')||localStorage.getItem('albertoPendingGroupInvite')||'',requestedView=params.get('view')||'';
