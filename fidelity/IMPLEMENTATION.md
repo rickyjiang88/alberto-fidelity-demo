@@ -4,7 +4,7 @@ Questa branch è una bozza tecnica, NON pubblicata e NON collegata al sistema di
 
 ## Regole
 - 1 punto per ogni euro intero di spesa idonea.
-- Venerdì a pranzo: doppio dei punti base.
+- Venerdì: doppio dei punti base per ogni acquisto idoneo, indipendentemente dal tipo di pasto.
 - 3 giorni distinti con pranzo nella settimana: +5.
 - Pranzo dal lunedì al venerdì (5 giorni consecutivi): +10, cumulabile con +5.
 - Colazione e pranzo nello stesso giorno per almeno 2 giorni nella settimana: +5.
