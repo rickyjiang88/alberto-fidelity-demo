@@ -57,7 +57,7 @@ window.openFidelityCustomer=async code=>{
       '<div style="background:#f2ebe3;border-radius:14px;padding:14px"><small>PORTAFOGLIO</small><strong style="display:block;font-size:28px;margin-top:5px">'+window.fidMoney(wallet)+'</strong></div>'+
     '</div>'+
     '<div style="border-top:1px solid #eee;padding-top:14px">'+
-      '<b>ACQUISTO</b><p class="status-note">Inserisci l’importo finale dello scontrino. 1 € = 1 punto.</p>'+
+      '<b>ACQUISTO</b><p class="status-note">Inserisci l’importo finale dello scontrino. 1 € = 1 punto. Ogni venerdì punti doppi, a qualsiasi ora.</p>'+
       '<label class="fieldlabel">IMPORTO €</label><input id="fidAmount" type="number" min="0" step=".01" inputmode="decimal" placeholder="0,00" oninput="window.updateFidelityPurchasePreview()">'+
       '<p id="fidPreview" style="font-weight:800">0 punti · saldo dopo pagamento: '+window.fidMoney(wallet)+'</p>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="red" type="button" onclick="window.payFidelityWallet()">PAGA CON PORTAFOGLIO + PUNTI</button><button type="button" onclick="window.creditFidelity()">PAGATO IN CASSA · AGGIUNGI PUNTI</button></div>'+
@@ -82,18 +82,24 @@ window.openFidelityCustomer=async code=>{
 };
 window.updateFidelityPurchasePreview=()=>{
   if(!fidelitySelected)return;
-  const amount=Math.max(0,Number(document.getElementById('fidAmount')?.value||0)),pts=Math.floor(amount),wallet=Number(fidelitySelected.walletBalance||0),after=wallet-amount;
+  const amount=Math.max(0,Number(document.getElementById('fidAmount')?.value||0)),pts=fidFridayPoints(amount).total,wallet=Number(fidelitySelected.walletBalance||0),after=wallet-amount;
   const el=document.getElementById('fidPreview');if(el)el.textContent=pts+' punti · saldo portafoglio dopo: '+window.fidMoney(Math.max(0,after))+(after<0?' · credito insufficiente':'');
 };
 window.updateFidelityTopupPreview=()=>{
   const amount=Math.max(0,Number(document.getElementById('fidTopup')?.value||0)),bonus=amount>=80?Math.round(amount*10)/100:0,total=amount+bonus,el=document.getElementById('fidTopupPreview');
   if(el)el.textContent=amount>0?('Versi '+window.fidMoney(amount)+' · bonus '+window.fidMoney(bonus)+' · accredito '+window.fidMoney(total)):'Inserisci l’importo della ricarica.';
 };
+function fidFridayPoints(amount,when=new Date()){
+  const base=Math.floor(Math.max(0,Number(amount)||0));
+  const friday=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Rome',weekday:'short'}).format(when)==='Fri';
+  return {base,bonus:friday?base:0,total:friday?base*2:base,friday};
+}
 async function fidPurchaseTransaction(code,amount,useWallet){
   const cr=doc(db,'fidelityCustomers',code);
+  const fridayAward=fidFridayPoints(amount);
   await runTransaction(db,async tx=>{
     const cs=await tx.get(cr);if(!cs.exists())throw new Error('Cliente non trovato');
-    const data=cs.data()||{},oldPoints=Number(data.points||0),wallet=Number(data.walletBalance||0),pts=Math.floor(amount);
+    const data=cs.data()||{},oldPoints=Number(data.points||0),wallet=Number(data.walletBalance||0),pts=fridayAward.total;
     if(useWallet&&wallet+0.0001<amount)throw new Error('Credito portafoglio insufficiente');
     let inviterSnap=null,inviterRef=null,referralBonus=false;
     const inviterCode=String(data.referredBy||'').trim().toUpperCase();
@@ -107,7 +113,7 @@ async function fidPurchaseTransaction(code,amount,useWallet){
     if(referralBonus){patch.referralRewarded=true;patch.referralRewardedAt=serverTimestamp();patch.referralStatus='rewarded'}
     tx.update(cr,patch);
     const tr=doc(collection(db,'fidelityTransactions'));
-    tx.set(tr,{customerCode:code,amount,points:pts,type:useWallet?'wallet_purchase':'receipt',walletDebit:useWallet?amount:0,createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null});
+    tx.set(tr,{customerCode:code,amount,points:pts,basePoints:fridayAward.base,fridayBonusPoints:fridayAward.bonus,fridayDoubleApplied:fridayAward.friday,type:useWallet?'wallet_purchase':'receipt',walletDebit:useWallet?amount:0,createdAt:serverTimestamp(),createdBy:auth.currentUser?.uid||null});
     if(referralBonus){
       const inv=inviterSnap.data()||{},invPts=Number(inv.points||0);
       tx.update(inviterRef,{points:invPts+5,updatedAt:serverTimestamp()});
@@ -119,13 +125,13 @@ async function fidPurchaseTransaction(code,amount,useWallet){
 window.creditFidelity=async()=>{
   if(!fidelitySelected)return;
   const amount=Number(document.getElementById('fidAmount')?.value);if(!(amount>0))return alert('Inserisci l’importo dello scontrino.');
-  try{await fidPurchaseTransaction(fidelitySelected.code,amount,false);alert('Acquisto registrato. Accreditati '+Math.floor(amount)+' punti.');await window.loadFidelityCustomers();await window.openFidelityCustomer(fidelitySelected.code)}catch(e){alert('Operazione non riuscita: '+e.message)}
+  try{await fidPurchaseTransaction(fidelitySelected.code,amount,false);alert('Acquisto registrato. Accreditati '+fidFridayPoints(amount).total+' punti.');await window.loadFidelityCustomers();await window.openFidelityCustomer(fidelitySelected.code)}catch(e){alert('Operazione non riuscita: '+e.message)}
 };
 window.payFidelityWallet=async()=>{
   if(!fidelitySelected)return;
   const amount=Number(document.getElementById('fidAmount')?.value);if(!(amount>0))return alert('Inserisci l’importo dello scontrino.');
   if(Number(fidelitySelected.walletBalance||0)+0.0001<amount)return alert('Credito portafoglio insufficiente.');
-  if(!confirm('Scalare '+window.fidMoney(amount)+' dal portafoglio e accreditare '+Math.floor(amount)+' punti?'))return;
+  if(!confirm('Scalare '+window.fidMoney(amount)+' dal portafoglio e accreditare '+fidFridayPoints(amount).total+' punti?'))return;
   try{await fidPurchaseTransaction(fidelitySelected.code,amount,true);alert('Pagamento registrato e punti accreditati.');await window.loadFidelityCustomers();await window.openFidelityCustomer(fidelitySelected.code)}catch(e){alert('Operazione non riuscita: '+e.message)}
 };
 window.topupFidelityWallet=async()=>{
