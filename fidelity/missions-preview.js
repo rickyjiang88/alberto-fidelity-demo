@@ -5,7 +5,7 @@
  */
 export const RULES = Object.freeze({
   pointsPerEuro: 1,
-  fridayLunchMultiplier: 2,
+  fridayPurchaseMultiplier: 2,
   threeLunchesBonus: 5,
   fiveConsecutiveLunchesBonus: 10,
   doubleVisitBonus: 5,
@@ -43,10 +43,9 @@ export function previewWeeklyMissions(transactions, weekMonday) {
     const date = dayKey(t.createdAt);
     if(!date || mondayOf(date.date)!==week) continue;
     const meal = String(t.mealType||'').toLowerCase();
+    if(date.weekday==='Fri' && !t.fridayBonusAwarded && !t.fridayExtraAwarded) fridayExtraMissing += basePoints(t.amount);
     if(meal==='lunch') {
       lunchDays.add(date.date);
-      if(date.weekday==='Fri' && !t.fridayBonusAwarded && !t.fridayExtraAwarded)
-        fridayExtraMissing += basePoints(t.amount);
     } else if(meal==='breakfast') breakfastDays.add(date.date);
     else unclassified++;
   }
@@ -68,6 +67,6 @@ export function previewWeeklyMissions(transactions, weekMonday) {
 }
 export function previewPurchase(amount,mealType,when=new Date()){
   const date=dayKey(when),base=basePoints(amount);
-  const fridayExtra=(mealType==='lunch'&&date?.weekday==='Fri')?base:0;
+  const fridayExtra=(date?.weekday==='Fri')?base:0;
   return {base,fridayExtra,total:base+fridayExtra,status:'PREVIEW_ONLY_NO_CREDIT'};
 }
