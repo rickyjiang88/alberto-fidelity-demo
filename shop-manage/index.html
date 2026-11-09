@@ -106,7 +106,7 @@ window.previewFidelityMissions=async()=>{
   for(const [code,txs] of byCustomer){
    const lunch=new Set(txs.filter(x=>x.meal==='lunch').map(x=>x.date));
    const breakfast=new Set(txs.filter(x=>x.meal==='breakfast').map(x=>x.date));
-   const friday=txs.filter(x=>x.meal==='lunch'&&x.weekday==='Fri').reduce((n,x)=>n+Math.floor(Math.max(0,x.amount)),0);
+   const friday=txs.filter(x=>x.weekday==='Fri').reduce((n,x)=>n+Math.floor(Math.max(0,x.amount)),0);
    const three=lunch.size>=3?5:0;
    let five=true;for(let i=0;i<5;i++){const d=new Date(monday+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+i);if(!lunch.has(d.toISOString().slice(0,10)))five=false;}
    const fiveBonus=five?10:0;
